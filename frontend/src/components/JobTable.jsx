@@ -69,6 +69,21 @@ function parseMismatches(mismatches) {
   }
 }
 
+function parseSkillMatch(skill_match) {
+  if (!skill_match) return null;
+  try {
+    return JSON.parse(skill_match);
+  } catch {
+    return null;
+  }
+}
+
+function matchScoreColor(score) {
+  if (score >= 75) return 'bg-green-100 text-green-700 border-green-300';
+  if (score >= 50) return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+  return 'bg-red-100 text-red-600 border-red-300';
+}
+
 export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete }) {
   const [expandedId, setExpandedId] = useState(null);
 
@@ -123,6 +138,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           const workload = job.workload ? WORKLOAD_LABELS[job.workload] : null;
           const mismatches = parseMismatches(job.mismatches);
           const hasMismatch = mismatches.length > 0;
+          const skillMatch = parseSkillMatch(job.skill_match);
 
           return (
             <div
@@ -207,6 +223,18 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                   )}
                 </div>
 
+                {/* Skill match badge */}
+                <div className="shrink-0 w-14 text-center">
+                  {skillMatch ? (
+                    <span className={`text-xs px-2 py-1 rounded-full border font-medium
+                                      ${matchScoreColor(skillMatch.score)}`}>
+                      {skillMatch.score}%
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-300">-</span>
+                  )}
+                </div>
+
                 {/* Expand icon */}
                 <span className="shrink-0 text-gray-400 text-sm">
                   {expanded ? '▲' : '▼'}
@@ -257,7 +285,44 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     {job.skills && (
                       <div className="col-span-2">
                         <span className="text-gray-400">技能需求：</span>
-                        <span className="text-gray-700">{job.skills}</span>
+                        {skillMatch ? (
+                          <span className="text-gray-700">
+                            {skillMatch.known.length > 0 && (
+                              <span>
+                                {skillMatch.known.map((s, i) => (
+                                  <span key={s} className="text-green-700 font-medium">
+                                    {s}{i < skillMatch.known.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
+                            {skillMatch.known.length > 0 && (skillMatch.learning.length > 0 || skillMatch.missing.length > 0) && ', '}
+                            {skillMatch.learning.length > 0 && (
+                              <span>
+                                {skillMatch.learning.map((s, i) => (
+                                  <span key={s} className="text-amber-600">
+                                    {s}{i < skillMatch.learning.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
+                            {skillMatch.learning.length > 0 && skillMatch.missing.length > 0 && ', '}
+                            {skillMatch.missing.length > 0 && (
+                              <span>
+                                {skillMatch.missing.map((s, i) => (
+                                  <span key={s} className="text-gray-400">
+                                    {s}{i < skillMatch.missing.length - 1 ? ', ' : ''}
+                                  </span>
+                                ))}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400 ml-2">
+                              ({skillMatch.score}% 匹配)
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-700">{job.skills}</span>
+                        )}
                       </div>
                     )}
                     {job.benefits && (

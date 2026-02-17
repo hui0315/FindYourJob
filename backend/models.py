@@ -26,6 +26,7 @@ class JobData(BaseModel):
     notes: Optional[str] = None
     priority: int = 3  # 1-5, 1=highest
     mismatches: Optional[str] = None  # JSON string of mismatch reasons
+    skill_match: Optional[str] = None  # JSON: {score, known, learning, missing, total}
     raw_text: Optional[str] = None
     created_at: Optional[str] = None
 

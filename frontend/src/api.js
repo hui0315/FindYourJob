@@ -62,3 +62,19 @@ export async function updateProfile(data) {
   if (!res.ok) throw new Error('儲存失敗');
   return res.json();
 }
+
+export async function fetchSkillPool() {
+  const res = await fetch(`${BASE}/skills/pool`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function updateUserSkills(updates) {
+  const res = await fetch(`${BASE}/skills`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error('更新失敗');
+  return res.json();
+}

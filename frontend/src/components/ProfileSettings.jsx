@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { fetchProfile, updateProfile } from '../api';
+import SkillPicker from './SkillPicker';
 
 const EDUCATION_OPTIONS = [
   { value: '', label: '不設定' },
@@ -143,22 +144,6 @@ export default function ProfileSettings({ onSaved }) {
           </div>
         </div>
 
-        {/* Skills */}
-        <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
-            你的技能（選填，逗號分隔）
-          </label>
-          <input
-            type="text"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       bg-white text-gray-800"
-            placeholder="例: React, Python, SQL"
-            value={profile.skills}
-            onChange={(e) => handleChange('skills', e.target.value)}
-          />
-        </div>
-
         {/* Preferred locations */}
         <div>
           <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -199,6 +184,10 @@ export default function ProfileSettings({ onSaved }) {
           尚未設定任何硬性條件。設定後，系統會在新增職缺時自動檢查是否符合你的條件。
         </p>
       )}
+
+      {/* Skill picker - grown from job data */}
+      <hr className="my-8 border-gray-200" />
+      <SkillPicker />
     </div>
   );
 }

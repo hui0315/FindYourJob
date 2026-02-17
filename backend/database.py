@@ -60,6 +60,12 @@ def init_db():
                 salary_type TEXT DEFAULT 'monthly'
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_skills (
+                skill TEXT PRIMARY KEY,
+                status TEXT DEFAULT 'none' CHECK (status IN ('known', 'learning', 'none'))
+            )
+        """)
         # Ensure exactly one profile row exists
         conn.execute("""
             INSERT OR IGNORE INTO user_profile (id) VALUES (1)

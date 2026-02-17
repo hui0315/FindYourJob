@@ -115,6 +115,103 @@ def check_mismatches(job: JobData, profile: UserProfile) -> list[str]:
     return issues
 
 
+# ── Skill pool ─────────────────────────────────────────
+
+def _normalize_skill(s: str) -> str:
+    """Normalize a skill string for consistent matching."""
+    return s.strip()
+
+
+def _split_skills(skills_str: str | None) -> list[str]:
+    """Split a comma-separated skills string into a list."""
+    if not skills_str:
+        return []
+    return [_normalize_skill(s) for s in skills_str.split(",") if s.strip()]
+
+
+@app.get("/api/skills/pool")
+def get_skill_pool():
+    """Aggregate all unique skills from all jobs, merged with user ratings."""
+    with get_db() as conn:
+        rows = conn.execute("SELECT skills FROM jobs WHERE skills IS NOT NULL").fetchall()
+        # Collect all unique skills
+        all_skills: set[str] = set()
+        for row in rows:
+            all_skills.update(_split_skills(row["skills"]))
+
+        if not all_skills:
+            return []
+
+        # Get user ratings
+        rated = conn.execute("SELECT skill, status FROM user_skills").fetchall()
+        rating_map = {r["skill"]: r["status"] for r in rated}
+
+        result = []
+        for skill in sorted(all_skills):
+            result.append({
+                "skill": skill,
+                "status": rating_map.get(skill, "none"),
+                "job_count": sum(
+                    1 for row in rows if skill in _split_skills(row["skills"])
+                ),
+            })
+        return result
+
+
+@app.put("/api/skills")
+def update_user_skills(updates: dict[str, str]):
+    """Batch update user skill statuses. Body: {"React": "known", "Docker": "learning"}"""
+    valid = {"known", "learning", "none"}
+    with get_db() as conn:
+        for skill, status in updates.items():
+            if status not in valid:
+                continue
+            if status == "none":
+                conn.execute("DELETE FROM user_skills WHERE skill = ?", (skill,))
+            else:
+                conn.execute(
+                    "INSERT OR REPLACE INTO user_skills (skill, status) VALUES (?, ?)",
+                    (skill, status),
+                )
+    return {"message": "已更新"}
+
+
+def calc_skill_match(job: JobData, conn) -> dict | None:
+    """Calculate skill match percentage for a job."""
+    job_skills = _split_skills(job.skills)
+    if not job_skills:
+        return None
+
+    rated = conn.execute("SELECT skill, status FROM user_skills").fetchall()
+    if not rated:
+        return None
+
+    rating_map = {r["skill"]: r["status"] for r in rated}
+
+    known = []
+    learning = []
+    missing = []
+    for skill in job_skills:
+        status = rating_map.get(skill, "none")
+        if status == "known":
+            known.append(skill)
+        elif status == "learning":
+            learning.append(skill)
+        else:
+            missing.append(skill)
+
+    total = len(job_skills)
+    score = (len(known) * 1.0 + len(learning) * 0.5) / total
+
+    return {
+        "score": round(score * 100),
+        "known": known,
+        "learning": learning,
+        "missing": missing,
+        "total": total,
+    }
+
+
 # ── Jobs CRUD ───────────────────────────────────────────
 
 @app.post("/api/jobs/parse", response_model=list[JobData])
@@ -143,6 +240,9 @@ def parse_and_save_jobs(req: JobParseRequest):
                 ),
             )
             job.id = cursor.lastrowid
+            match = calc_skill_match(job, conn)
+            if match:
+                job.skill_match = json.dumps(match, ensure_ascii=False)
             saved.append(job)
 
     return saved
@@ -163,7 +263,14 @@ def list_jobs(sort_by: str = "created_at", order: str = "desc"):
         rows = conn.execute(
             f"SELECT * FROM jobs ORDER BY {sort_by} {order}"
         ).fetchall()
-        return [JobData(**dict(row)) for row in rows]
+        jobs = []
+        for row in rows:
+            job = JobData(**dict(row))
+            match = calc_skill_match(job, conn)
+            if match:
+                job.skill_match = json.dumps(match, ensure_ascii=False)
+            jobs.append(job)
+        return jobs
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobData)
