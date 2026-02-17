@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import JobInput from './components/JobInput';
 import JobTable from './components/JobTable';
-import { fetchJobs, deleteJob, deleteAllJobs } from './api';
+import { fetchJobs, deleteJob, deleteAllJobs, fetchStatus } from './api';
 
 export default function App() {
   const [jobs, setJobs] = useState([]);
@@ -9,6 +9,7 @@ export default function App() {
   const [order, setOrder] = useState('desc');
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState('input'); // 'input' | 'table'
+  const [status, setStatus] = useState(null);
 
   const loadJobs = useCallback(async () => {
     try {
@@ -21,6 +22,7 @@ export default function App() {
 
   useEffect(() => {
     loadJobs();
+    fetchStatus().then(setStatus);
   }, [loadJobs]);
 
   function handleParsed(newJobs) {
@@ -57,9 +59,20 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-gray-800">
-            FindYourJob
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-gray-800">
+              FindYourJob
+            </h1>
+            {status && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                status.ollama_available
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-yellow-100 text-yellow-700'
+              }`}>
+                {status.ollama_available ? `LLM: ${status.model}` : 'Regex 模式'}
+              </span>
+            )}
+          </div>
           <nav className="flex gap-1">
             <button
               onClick={() => setView('input')}

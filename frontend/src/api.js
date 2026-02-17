@@ -40,3 +40,9 @@ export async function deleteAllJobs() {
   if (!res.ok) throw new Error('清除失敗');
   return res.json();
 }
+
+export async function fetchStatus() {
+  const res = await fetch(`${BASE}/status`);
+  if (!res.ok) return null;
+  return res.json();
+}

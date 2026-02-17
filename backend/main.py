@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db, get_db
 from models import JobParseRequest, JobData, JobUpdate
-from mock_parser import parse_job_text
+from llm_parser import parse_job_text, check_ollama_available, MODEL
 
 app = FastAPI(title="FindYourJob API")
 
@@ -18,6 +18,17 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     init_db()
+
+
+@app.get("/api/status")
+def get_status():
+    """Check backend status and Ollama availability."""
+    ollama_ok = check_ollama_available()
+    return {
+        "ollama_available": ollama_ok,
+        "model": MODEL if ollama_ok else None,
+        "parser": "llm" if ollama_ok else "regex",
+    }
 
 
 @app.post("/api/jobs/parse", response_model=list[JobData])
