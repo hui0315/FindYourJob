@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import JobInput from './components/JobInput';
 import JobTable from './components/JobTable';
+import ProfileSettings from './components/ProfileSettings';
 import { fetchJobs, deleteJob, deleteAllJobs, fetchStatus } from './api';
 
 export default function App() {
@@ -8,7 +9,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState('created_at');
   const [order, setOrder] = useState('desc');
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('input'); // 'input' | 'table'
+  const [view, setView] = useState('input'); // 'input' | 'table' | 'profile'
   const [status, setStatus] = useState(null);
 
   const loadJobs = useCallback(async () => {
@@ -54,6 +55,12 @@ export default function App() {
     }
   }
 
+  const NAV_ITEMS = [
+    { key: 'profile', label: '我的條件' },
+    { key: 'input', label: '輸入職缺' },
+    { key: 'table', label: '整理檢視', badge: jobs.length || null },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -74,45 +81,47 @@ export default function App() {
             )}
           </div>
           <nav className="flex gap-1">
-            <button
-              onClick={() => setView('input')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${view === 'input'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-                }`}
-            >
-              輸入職缺
-            </button>
-            <button
-              onClick={() => { setView('table'); loadJobs(); }}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${view === 'table'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100'
-                }`}
-            >
-              整理檢視
-              {jobs.length > 0 && (
-                <span className="ml-1.5 bg-blue-500 text-white text-xs
-                                  px-1.5 py-0.5 rounded-full">
-                  {jobs.length}
-                </span>
-              )}
-            </button>
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setView(item.key);
+                  if (item.key === 'table') loadJobs();
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                  ${view === item.key
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+              >
+                {item.label}
+                {item.badge && (
+                  <span className="ml-1.5 bg-blue-500 text-white text-xs
+                                    px-1.5 py-0.5 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </nav>
         </div>
       </header>
 
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 py-8">
-        {view === 'input' ? (
+        {view === 'profile' && (
+          <ProfileSettings />
+        )}
+
+        {view === 'input' && (
           <JobInput
             onParsed={handleParsed}
             loading={loading}
             setLoading={setLoading}
           />
-        ) : (
+        )}
+
+        {view === 'table' && (
           <div>
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-gray-700">

@@ -25,6 +25,11 @@ SYSTEM_PROMPT = """你是一個職缺資訊萃取助手。使用者會貼上一�
 - job_type: "full-time" | "part-time" | "contract" | "intern" | null
 - workload: "light" | "moderate" | "heavy" | null (根據描述判斷工作強度)
 - skills: 技能需求，逗號分隔 (string 或 null)
+- experience_years: 要求的最低工作年資 (integer 或 null，例如 "3年以上" → 3，"不拘" → 0)
+- education: 最低學歷要求 (string 或 null): "high_school" | "bachelor" | "master" | "phd" | "none"
+- remote_type: 遠端類型 (string 或 null): "onsite" | "hybrid" | "remote"
+- work_hours: 上班時間描述 (string 或 null，例如 "09:00-18:00"、"排班制")
+- benefits: 福利摘要，逗號分隔 (string 或 null，例如 "年終2個月, 三節獎金, 員工旅遊")
 - source_url: 來源網址 (string 或 null)
 - notes: 其他值得注意的資訊 (string 或 null)
 
@@ -96,6 +101,11 @@ def parse_with_ollama(raw_text: str) -> list[JobData]:
             job_type=item.get("job_type"),
             workload=item.get("workload"),
             skills=item.get("skills"),
+            experience_years=_safe_int(item.get("experience_years")),
+            education=item.get("education"),
+            remote_type=item.get("remote_type"),
+            work_hours=item.get("work_hours"),
+            benefits=item.get("benefits"),
             source_url=item.get("source_url"),
             notes=item.get("notes"),
             raw_text=raw_text,

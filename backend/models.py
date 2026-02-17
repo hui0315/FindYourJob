@@ -17,9 +17,15 @@ class JobData(BaseModel):
     job_type: Optional[str] = None  # full-time, part-time, contract, intern
     workload: Optional[str] = None  # light, moderate, heavy
     skills: Optional[str] = None
+    experience_years: Optional[int] = None
+    education: Optional[str] = None  # high_school, bachelor, master, phd, none
+    remote_type: Optional[str] = None  # onsite, hybrid, remote
+    work_hours: Optional[str] = None
+    benefits: Optional[str] = None
     source_url: Optional[str] = None
     notes: Optional[str] = None
     priority: int = 3  # 1-5, 1=highest
+    mismatches: Optional[str] = None  # JSON string of mismatch reasons
     raw_text: Optional[str] = None
     created_at: Optional[str] = None
 
@@ -34,6 +40,20 @@ class JobUpdate(BaseModel):
     job_type: Optional[str] = None
     workload: Optional[str] = None
     skills: Optional[str] = None
+    experience_years: Optional[int] = None
+    education: Optional[str] = None
+    remote_type: Optional[str] = None
+    work_hours: Optional[str] = None
+    benefits: Optional[str] = None
     source_url: Optional[str] = None
     notes: Optional[str] = None
     priority: Optional[int] = None
+
+
+class UserProfile(BaseModel):
+    experience_years: Optional[int] = None
+    education: Optional[str] = None  # high_school, bachelor, master, phd
+    skills: Optional[str] = None
+    preferred_locations: Optional[str] = None
+    min_salary: Optional[int] = None
+    salary_type: str = "monthly"

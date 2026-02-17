@@ -46,3 +46,19 @@ export async function fetchStatus() {
   if (!res.ok) return null;
   return res.json();
 }
+
+export async function fetchProfile() {
+  const res = await fetch(`${BASE}/profile`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function updateProfile(data) {
+  const res = await fetch(`${BASE}/profile`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('儲存失敗');
+  return res.json();
+}

@@ -36,10 +36,31 @@ def init_db():
                 job_type TEXT,
                 workload TEXT,
                 skills TEXT,
+                experience_years INTEGER,
+                education TEXT,
+                remote_type TEXT,
+                work_hours TEXT,
+                benefits TEXT,
                 source_url TEXT,
                 notes TEXT,
                 priority INTEGER DEFAULT 3,
+                mismatches TEXT,
                 raw_text TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_profile (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                experience_years INTEGER,
+                education TEXT,
+                skills TEXT,
+                preferred_locations TEXT,
+                min_salary INTEGER,
+                salary_type TEXT DEFAULT 'monthly'
+            )
+        """)
+        # Ensure exactly one profile row exists
+        conn.execute("""
+            INSERT OR IGNORE INTO user_profile (id) VALUES (1)
         """)

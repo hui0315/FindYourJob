@@ -1,6 +1,6 @@
 """
-Mock parser that simulates LLM extraction of job data from raw text.
-This will be replaced with actual LLM calls (e.g. OpenAI gpt-4o-mini) later.
+Regex-based fallback parser for extracting job data from raw text.
+Used when Ollama is not available.
 """
 
 import re
@@ -38,6 +38,9 @@ def _extract_single_job(text: str) -> JobData:
     job_type = _extract_job_type(text)
     workload = _extract_workload(text)
     skills = _extract_skills(text)
+    experience_years = _extract_experience(text)
+    education = _extract_education(text)
+    remote_type = _extract_remote_type(text)
 
     return JobData(
         title=title,
@@ -49,6 +52,9 @@ def _extract_single_job(text: str) -> JobData:
         job_type=job_type,
         workload=workload,
         skills=skills,
+        experience_years=experience_years,
+        education=education,
+        remote_type=remote_type,
         raw_text=text,
     )
 
@@ -171,3 +177,44 @@ def _extract_skills(text: str) -> str | None:
         if re.search(r'\b' + kw + r'\b', text, re.IGNORECASE):
             found.append(kw.replace('\\+\\+', '++'))
     return ', '.join(found) if found else None
+
+
+def _extract_experience(text: str) -> int | None:
+    patterns = [
+        r'(?:經驗|Experience|年資)\s*[:：]\s*(\d+)\s*年',
+        r'(\d+)\s*年以上(?:經驗|工作)',
+        r'(\d+)\+?\s*years?',
+    ]
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return int(m.group(1))
+    if re.search(r'不拘|無需經驗|no experience|entry[\s-]?level', text, re.IGNORECASE):
+        return 0
+    return None
+
+
+def _extract_education(text: str) -> str | None:
+    mapping = {
+        'phd': [r'博士', r'Ph\.?D'],
+        'master': [r'碩士', r'[Mm]aster'],
+        'bachelor': [r'大學|大專|學士', r'[Bb]achelor'],
+        'high_school': [r'高中|高職', r'[Hh]igh\s*[Ss]chool'],
+    }
+    for level, patterns in mapping.items():
+        for p in patterns:
+            if re.search(p, text, re.IGNORECASE):
+                return level
+    if re.search(r'學歷不拘', text, re.IGNORECASE):
+        return "none"
+    return None
+
+
+def _extract_remote_type(text: str) -> str | None:
+    if re.search(r'全遠端|fully?\s*remote|100%\s*remote', text, re.IGNORECASE):
+        return "remote"
+    if re.search(r'混合|hybrid|部分遠端', text, re.IGNORECASE):
+        return "hybrid"
+    if re.search(r'到班|onsite|on[\s-]?site|進辦公室', text, re.IGNORECASE):
+        return "onsite"
+    return None
