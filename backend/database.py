@@ -1,0 +1,45 @@
+import sqlite3
+import os
+from contextlib import contextmanager
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "jobs.db")
+
+
+def get_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
+@contextmanager
+def get_db():
+    conn = get_connection()
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def init_db():
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS jobs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                company TEXT NOT NULL,
+                salary_min INTEGER,
+                salary_max INTEGER,
+                salary_type TEXT DEFAULT 'monthly',
+                location TEXT,
+                job_type TEXT,
+                workload TEXT,
+                skills TEXT,
+                source_url TEXT,
+                notes TEXT,
+                priority INTEGER DEFAULT 3,
+                raw_text TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
