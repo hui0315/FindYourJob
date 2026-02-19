@@ -5,13 +5,14 @@ Falls back to regex-based mock_parser when Ollama is unavailable.
 
 import json
 import logging
+import os
 import httpx
 from models import JobData
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_BASE = "http://localhost:11434"
-MODEL = "qwen2.5:3b"
+OLLAMA_BASE = os.environ.get("OLLAMA_BASE", "http://localhost:11434")
+MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 
 SYSTEM_PROMPT = """你是一個職缺資訊萃取助手。使用者會貼上一段或多段職缺描述文字，請從中萃取結構化資料。
 

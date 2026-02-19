@@ -1,9 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional
 
 
 class JobParseRequest(BaseModel):
     raw_text: str
+
+    @field_validator("raw_text")
+    @classmethod
+    def validate_length(cls, v: str) -> str:
+        if len(v) > 50000:
+            raise ValueError("文字內容不能超過 50,000 字元")
+        return v
 
 
 class JobData(BaseModel):
@@ -49,6 +56,11 @@ class JobUpdate(BaseModel):
     source_url: Optional[str] = None
     notes: Optional[str] = None
     priority: Optional[int] = None
+
+
+class MismatchItem(BaseModel):
+    type: str   # "salary" | "experience" | "education" | "location"
+    message: str
 
 
 class UserProfile(BaseModel):

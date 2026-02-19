@@ -1,4 +1,5 @@
 import json
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,12 +11,27 @@ app = FastAPI(title="FindYourJob API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=os.environ.get(
+        "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"
+    ).split(","),
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 EDUCATION_RANK = {"none": 0, "high_school": 1, "bachelor": 2, "master": 3, "phd": 4}
+
+HOURLY_TO_MONTHLY = 160  # 8 hours/day * 20 days/month
+
+
+def normalize_salary_to_monthly(amount: int | None, salary_type: str) -> int | None:
+    """Convert any salary amount to its monthly equivalent."""
+    if amount is None or salary_type == "negotiable":
+        return None
+    if salary_type == "yearly":
+        return amount // 12
+    if salary_type == "hourly":
+        return amount * HOURLY_TO_MONTHLY
+    return amount
 
 JOB_COLUMNS = (
     "title, company, salary_min, salary_max, salary_type, "
@@ -23,6 +39,13 @@ JOB_COLUMNS = (
     "education, remote_type, work_hours, benefits, "
     "source_url, notes, priority, mismatches, raw_text"
 )
+
+UPDATABLE_COLUMNS = {
+    "title", "company", "salary_min", "salary_max", "salary_type",
+    "location", "job_type", "workload", "skills", "experience_years",
+    "education", "remote_type", "work_hours", "benefits",
+    "source_url", "notes", "priority",
+}
 
 
 @app.on_event("startup")
@@ -78,17 +101,18 @@ def _get_profile(conn) -> UserProfile:
     return UserProfile(**{k: row[k] for k in UserProfile.model_fields})
 
 
-def check_mismatches(job: JobData, profile: UserProfile) -> list[str]:
-    """Compare a job against user profile, return list of mismatch descriptions."""
+def check_mismatches(job: JobData, profile: UserProfile) -> list[dict]:
+    """Compare a job against user profile, return list of mismatch dicts."""
     issues = []
 
     # Experience check
     if (profile.experience_years is not None
             and job.experience_years is not None
             and job.experience_years > profile.experience_years):
-        issues.append(
-            f"要求 {job.experience_years} 年經驗，你有 {profile.experience_years} 年"
-        )
+        issues.append({
+            "type": "experience",
+            "message": f"要求 {job.experience_years} 年經驗，你有 {profile.experience_years} 年",
+        })
 
     # Education check
     if profile.education and job.education:
@@ -99,18 +123,37 @@ def check_mismatches(job: JobData, profile: UserProfile) -> list[str]:
                 "high_school": "高中", "bachelor": "大學",
                 "master": "碩士", "phd": "博士", "none": "不拘",
             }
-            issues.append(
-                f"要求{edu_labels.get(job.education, job.education)}學歷"
-            )
+            issues.append({
+                "type": "education",
+                "message": f"要求{edu_labels.get(job.education, job.education)}學歷",
+            })
 
-    # Salary check
+    # Salary check — normalize both sides to monthly before comparing
     if (profile.min_salary is not None
             and job.salary_max is not None
             and job.salary_type != "negotiable"
-            and job.salary_max < profile.min_salary):
-        issues.append(
-            f"薪資上限 {job.salary_max:,} 低於你的期望 {profile.min_salary:,}"
-        )
+            and profile.salary_type != "negotiable"):
+        job_monthly = normalize_salary_to_monthly(job.salary_max, job.salary_type)
+        profile_monthly = normalize_salary_to_monthly(profile.min_salary, profile.salary_type)
+        if job_monthly is not None and profile_monthly is not None and job_monthly < profile_monthly:
+            salary_type_labels = {"monthly": "月薪", "yearly": "年薪", "hourly": "時薪"}
+            job_label = salary_type_labels.get(job.salary_type, job.salary_type)
+            profile_label = salary_type_labels.get(profile.salary_type, profile.salary_type)
+            issues.append({
+                "type": "salary",
+                "message": f"薪資上限 {job.salary_max:,}（{job_label}）低於你的期望 {profile.min_salary:,}（{profile_label}）",
+            })
+
+    # Location check
+    if profile.preferred_locations and job.location:
+        prefs = [loc.strip() for loc in profile.preferred_locations.split(",") if loc.strip()]
+        if prefs:
+            matched = any(pref in job.location or job.location in pref for pref in prefs)
+            if not matched:
+                issues.append({
+                    "type": "location",
+                    "message": f"工作地點 {job.location} 不在你的偏好地區",
+                })
 
     return issues
 
@@ -284,7 +327,8 @@ def get_job(job_id: int):
 
 @app.put("/api/jobs/{job_id}", response_model=JobData)
 def update_job(job_id: int, update: JobUpdate):
-    updates = {k: v for k, v in update.model_dump().items() if v is not None}
+    updates = {k: v for k, v in update.model_dump().items()
+               if v is not None and k in UPDATABLE_COLUMNS}
     if not updates:
         raise HTTPException(status_code=400, detail="沒有要更新的欄位")
 

@@ -49,7 +49,11 @@ export default function JobInput({ onParsed, loading, setLoading }) {
         placeholder={PLACEHOLDER}
         value={text}
         onChange={(e) => setText(e.target.value)}
+        maxLength={50000}
       />
+      <div className="text-xs text-gray-400 text-right mt-1">
+        {text.length.toLocaleString()} / 50,000
+      </div>
       {error && (
         <p className="text-red-500 text-sm mt-1">{error}</p>
       )}

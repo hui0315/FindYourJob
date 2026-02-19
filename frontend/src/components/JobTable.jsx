@@ -63,7 +63,11 @@ function formatSalary(min, max, type) {
 function parseMismatches(mismatches) {
   if (!mismatches) return [];
   try {
-    return JSON.parse(mismatches);
+    const parsed = JSON.parse(mismatches);
+    // Handle both old format (array of strings) and new format (array of objects)
+    return parsed.map((item) =>
+      typeof item === 'string' ? { type: 'unknown', message: item } : item
+    );
   } catch {
     return [];
   }
@@ -155,9 +159,9 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                                 flex items-start gap-2">
                   <span className="text-red-500 font-bold text-sm shrink-0 mt-0.5">!</span>
                   <div className="text-sm text-red-600">
-                    {mismatches.map((msg, i) => (
+                    {mismatches.map((item, i) => (
                       <span key={i}>
-                        {msg}{i < mismatches.length - 1 ? '；' : ''}
+                        {item.message}{i < mismatches.length - 1 ? '；' : ''}
                       </span>
                     ))}
                   </div>
@@ -200,7 +204,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 {/* Salary */}
                 <div className="shrink-0 text-right">
                   <p className={`font-medium ${
-                    hasMismatch && job.mismatches?.includes('薪資')
+                    hasMismatch && mismatches.some((m) => m.type === 'salary')
                       ? 'text-red-600' : 'text-green-700'
                   }`}>
                     {formatSalary(job.salary_min, job.salary_max, job.salary_type)}
@@ -209,7 +213,10 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
 
                 {/* Location */}
                 <div className="shrink-0 w-20 text-center">
-                  <p className="text-sm text-gray-500">{job.location || '-'}</p>
+                  <p className={`text-sm ${
+                    hasMismatch && mismatches.some((m) => m.type === 'location')
+                      ? 'text-red-600 font-medium' : 'text-gray-500'
+                  }`}>{job.location || '-'}</p>
                 </div>
 
                 {/* Workload */}
@@ -250,7 +257,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       <div>
                         <span className="text-gray-400">經驗要求：</span>
                         <span className={
-                          hasMismatch && job.mismatches?.includes('經驗')
+                          hasMismatch && mismatches.some((m) => m.type === 'experience')
                             ? 'text-red-600 font-medium' : 'text-gray-700'
                         }>
                           {job.experience_years === 0 ? '不拘' : `${job.experience_years} 年以上`}
@@ -261,7 +268,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       <div>
                         <span className="text-gray-400">學歷要求：</span>
                         <span className={
-                          hasMismatch && job.mismatches?.includes('學歷')
+                          hasMismatch && mismatches.some((m) => m.type === 'education')
                             ? 'text-red-600 font-medium' : 'text-gray-700'
                         }>
                           {EDUCATION_LABELS[job.education] || job.education}
