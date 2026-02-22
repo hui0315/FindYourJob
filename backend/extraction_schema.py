@@ -169,7 +169,7 @@ _RULES = """規則：
 def build_system_prompt() -> str:
     """Generate system prompt for local Ollama usage."""
     template_body = _build_template_body()
-    return f"""你是一個職缺資訊整理助手。請將使用者提供的職缺文字，逐欄位整理填入以下 JSON 格式。
+    return f"""你是一個職缺資訊整理助手。請將使用者提供的職缺文字逐欄位整理，以繁體中文填入以下 JSON 格式。
 找不到的欄位填 null，不要自行推測。
 
 每筆職缺的格式：
@@ -186,7 +186,7 @@ def build_system_prompt() -> str:
 def build_user_prompt() -> str:
     """Generate a user-facing prompt for copying into online LLMs (ChatGPT, Gemini, etc.)."""
     template_body = _build_template_body()
-    return f"""請幫我把以下的職缺資訊，整理成 JSON 格式。每個欄位根據說明填入，找不到的填 null，不要自行推測。
+    return f"""請幫我把以下的職缺資訊，整理成繁體中文 JSON 格式。每個欄位根據說明填入，找不到的填 null，不要自行推測。
 
 每筆職缺的 JSON 格式：
 {{
