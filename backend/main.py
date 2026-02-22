@@ -280,6 +280,7 @@ def parse_and_save_jobs(req: JobParseRequest):
 
 class JobImportRequest(PydanticBaseModel):
     json_text: str
+    raw_text: str = ""
 
 
 def _clean_json_text(text: str) -> str:
@@ -351,7 +352,11 @@ def import_structured_jobs(req: JobImportRequest):
         raise HTTPException(status_code=400, detail="沒有找到職缺資料")
 
     try:
-        jobs = [extraction_to_jobdata(item, json.dumps(item, ensure_ascii=False)) for item in items]
+        fallback_raw = req.raw_text or None
+        jobs = [
+            extraction_to_jobdata(item, fallback_raw or json.dumps(item, ensure_ascii=False))
+            for item in items
+        ]
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
 
