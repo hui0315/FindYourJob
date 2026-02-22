@@ -41,6 +41,26 @@ export async function deleteAllJobs() {
   return res.json();
 }
 
+export async function importJobs(jsonText) {
+  const res = await fetch(`${BASE}/jobs/import`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ json_text: jsonText }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || '匯入失敗');
+  }
+  return res.json();
+}
+
+export async function fetchPromptTemplate() {
+  const res = await fetch(`${BASE}/prompt-template`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.prompt;
+}
+
 export async function fetchStatus() {
   const res = await fetch(`${BASE}/status`);
   if (!res.ok) return null;

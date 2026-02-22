@@ -1,11 +1,14 @@
 import json
+import re
 import os
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel as PydanticBaseModel
 
 from database import init_db, get_db
 from models import JobParseRequest, JobData, JobUpdate, UserProfile
 from llm_parser import parse_job_text, check_ollama_available, MODEL
+from extraction_schema import build_user_prompt, extraction_to_jobdata
 
 app = FastAPI(title="FindYourJob API")
 
@@ -65,6 +68,13 @@ def get_status():
         "model": MODEL if ollama_ok else None,
         "parser": "llm" if ollama_ok else "regex",
     }
+
+
+# ── Prompt template ────────────────────────────────────
+
+@app.get("/api/prompt-template")
+def get_prompt_template():
+    return {"prompt": build_user_prompt()}
 
 
 # ── Profile ─────────────────────────────────────────────
@@ -265,11 +275,31 @@ def parse_and_save_jobs(req: JobParseRequest):
         raise HTTPException(status_code=400, detail="文字內容不能為空")
 
     parsed_jobs = parse_job_text(req.raw_text)
+    return _save_jobs_to_db(parsed_jobs)
 
+
+class JobImportRequest(PydanticBaseModel):
+    json_text: str
+
+
+def _clean_json_text(text: str) -> str:
+    """Strip markdown code blocks and whitespace from LLM output."""
+    text = text.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        lines = lines[1:]  # remove opening ```json
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        text = "\n".join(lines)
+    return text.strip()
+
+
+def _save_jobs_to_db(jobs: list[JobData]) -> list[JobData]:
+    """Save a list of JobData to DB with mismatch check and skill match."""
     saved = []
     with get_db() as conn:
         profile = _get_profile(conn)
-        for job in parsed_jobs:
+        for job in jobs:
             mismatches = check_mismatches(job, profile)
             job.mismatches = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
 
@@ -291,8 +321,41 @@ def parse_and_save_jobs(req: JobParseRequest):
             if match:
                 job.skill_match = json.dumps(match, ensure_ascii=False)
             saved.append(job)
-
     return saved
+
+
+@app.post("/api/jobs/import", response_model=list[JobData])
+def import_structured_jobs(req: JobImportRequest):
+    """Import pre-structured JSON from online LLM (ChatGPT, Gemini, etc.)."""
+    cleaned = _clean_json_text(req.json_text)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="JSON 內容不能為空")
+
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"JSON 格式錯誤：{e}")
+
+    # Handle single object or array
+    if isinstance(parsed, dict):
+        if "jobs" in parsed:
+            items = parsed["jobs"]
+        else:
+            items = [parsed]
+    elif isinstance(parsed, list):
+        items = parsed
+    else:
+        raise HTTPException(status_code=400, detail="JSON 格式不正確，需要物件或陣列")
+
+    if not items:
+        raise HTTPException(status_code=400, detail="沒有找到職缺資料")
+
+    try:
+        jobs = [extraction_to_jobdata(item, json.dumps(item, ensure_ascii=False)) for item in items]
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
+
+    return _save_jobs_to_db(jobs)
 
 
 @app.get("/api/jobs", response_model=list[JobData])

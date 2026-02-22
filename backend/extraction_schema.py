@@ -134,29 +134,41 @@ def _type_hint(field_info) -> str:
     return str(annotation)
 
 
-def build_system_prompt() -> str:
-    """Generate system prompt from JobExtraction model fields."""
+def _build_template_body() -> str:
+    """Generate the JSON template body from JobExtraction model fields."""
     lines = []
     for name, field_info in JobExtraction.model_fields.items():
         type_hint = _type_hint(field_info)
         desc = field_info.description or name
         lines.append(f'  "{name}": "({type_hint}) {desc}"')
+    return ",\n".join(lines)
 
-    template_body = ",\n".join(lines)
 
-    benefits_example = json.dumps(
-        {
-            "bonus": ["年終獎金", "績效獎金"],
-            "insurance": ["團體保險"],
-            "leave": [],
-            "subsidy": ["旅遊補助"],
-            "system": ["教育訓練"],
-            "other": ["員工旅遊"],
-        },
-        ensure_ascii=False,
-        indent=4,
-    )
+_BENEFITS_EXAMPLE = json.dumps(
+    {
+        "bonus": ["年終獎金", "績效獎金"],
+        "insurance": ["團體保險"],
+        "leave": [],
+        "subsidy": ["旅遊補助"],
+        "system": ["教育訓練"],
+        "other": ["員工旅遊"],
+    },
+    ensure_ascii=False,
+    indent=4,
+)
 
+_RULES = """規則：
+1. 薪資一律轉成數字（50K → 50000, 5萬 → 50000）
+2. 面議 → salary_type="negotiable", salary_min 和 salary_max 填 null
+3. 保障年薪月數：「年終N個月」→ salary_guaranteed_months = 12 + N
+4. benefits_structured 只填文字中明確提及的項目，空的分類用空陣列 []
+5. 多筆職缺回傳 JSON 陣列
+6. 只回傳 JSON，不要其他文字"""
+
+
+def build_system_prompt() -> str:
+    """Generate system prompt for local Ollama usage."""
+    template_body = _build_template_body()
     return f"""你是一個職缺資訊整理助手。請將使用者提供的職缺文字，逐欄位整理填入以下 JSON 格式。
 找不到的欄位填 null，不要自行推測。
 
@@ -166,15 +178,28 @@ def build_system_prompt() -> str:
 }}
 
 其中 benefits_structured 的格式範例：
-{benefits_example}
+{_BENEFITS_EXAMPLE}
 
-規則：
-1. 薪資一律轉成數字（50K → 50000, 5萬 → 50000）
-2. 面議 → salary_type="negotiable", salary_min 和 salary_max 填 null
-3. 保障年薪月數：「年終N個月」→ salary_guaranteed_months = 12 + N
-4. benefits_structured 只填文字中明確提及的項目，空的分類用空陣列 []
-5. 多筆職缺回傳 JSON 陣列
-6. 只回傳 JSON，不要其他文字"""
+{_RULES}"""
+
+
+def build_user_prompt() -> str:
+    """Generate a user-facing prompt for copying into online LLMs (ChatGPT, Gemini, etc.)."""
+    template_body = _build_template_body()
+    return f"""請幫我把以下的職缺資訊，整理成 JSON 格式。每個欄位根據說明填入，找不到的填 null，不要自行推測。
+
+每筆職缺的 JSON 格式：
+{{
+{template_body}
+}}
+
+其中 benefits_structured 的格式範例：
+{_BENEFITS_EXAMPLE}
+
+{_RULES}
+
+以下是需要整理的職缺文字：
+"""
 
 
 # ── Convert extraction result to JobData ──────────────────
