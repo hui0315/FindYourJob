@@ -337,6 +337,10 @@ def import_structured_jobs(req: JobImportRequest):
     except json.JSONDecodeError as e:
         raise HTTPException(status_code=400, detail=f"JSON 格式錯誤：{e}")
 
+    # Detect LLM error response (e.g. non-job input)
+    if isinstance(parsed, dict) and "error" in parsed:
+        raise HTTPException(status_code=400, detail=parsed["error"])
+
     # Handle single object or array
     if isinstance(parsed, dict):
         if "jobs" in parsed:

@@ -163,7 +163,9 @@ _RULES = """規則：
 3. 保障年薪月數：「年終N個月」→ salary_guaranteed_months = 12 + N
 4. benefits_structured 只填文字中明確提及的項目，空的分類用空陣列 []
 5. 多筆職缺回傳 JSON 陣列
-6. 只回傳 JSON，不要其他文字"""
+6. 只回傳 JSON，不要其他文字
+7. 所有文字欄位請使用繁體中文
+8. 如果提供的文字不是職缺資訊，只回傳 {"error": "非職缺資訊，無法解析"}"""
 
 
 def build_system_prompt() -> str:
