@@ -20,6 +20,7 @@ class JobData(BaseModel):
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     salary_type: str = "monthly"  # monthly, yearly, hourly, negotiable
+    salary_guaranteed_months: Optional[int] = None  # 保障年薪月數 (e.g., 14)
     location: Optional[str] = None
     job_type: Optional[str] = None  # full-time, part-time, contract, intern
     workload: Optional[str] = None  # light, moderate, heavy
@@ -28,7 +29,10 @@ class JobData(BaseModel):
     education: Optional[str] = None  # high_school, bachelor, master, phd, none
     remote_type: Optional[str] = None  # onsite, hybrid, remote
     work_hours: Optional[str] = None
-    benefits: Optional[str] = None
+    leave_policy: Optional[str] = None  # 休假制度: 週休二日, 排班制, etc.
+    benefits: Optional[str] = None  # legacy free-text
+    benefits_structured: Optional[str] = None  # JSON: {bonus:[], insurance:[], leave:[], subsidy:[], system:[], other:[]}
+    language: Optional[str] = None  # 語文條件
     source_url: Optional[str] = None
     notes: Optional[str] = None
     priority: int = 3  # 1-5, 1=highest
@@ -44,6 +48,7 @@ class JobUpdate(BaseModel):
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     salary_type: Optional[str] = None
+    salary_guaranteed_months: Optional[int] = None
     location: Optional[str] = None
     job_type: Optional[str] = None
     workload: Optional[str] = None
@@ -52,7 +57,10 @@ class JobUpdate(BaseModel):
     education: Optional[str] = None
     remote_type: Optional[str] = None
     work_hours: Optional[str] = None
+    leave_policy: Optional[str] = None
     benefits: Optional[str] = None
+    benefits_structured: Optional[str] = None
+    language: Optional[str] = None
     source_url: Optional[str] = None
     notes: Optional[str] = None
     priority: Optional[int] = None

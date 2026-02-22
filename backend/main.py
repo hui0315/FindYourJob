@@ -34,16 +34,18 @@ def normalize_salary_to_monthly(amount: int | None, salary_type: str) -> int | N
     return amount
 
 JOB_COLUMNS = (
-    "title, company, salary_min, salary_max, salary_type, "
+    "title, company, salary_min, salary_max, salary_type, salary_guaranteed_months, "
     "location, job_type, workload, skills, experience_years, "
-    "education, remote_type, work_hours, benefits, "
-    "source_url, notes, priority, mismatches, raw_text"
+    "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
+    "language, source_url, notes, priority, mismatches, raw_text"
 )
 
 UPDATABLE_COLUMNS = {
     "title", "company", "salary_min", "salary_max", "salary_type",
+    "salary_guaranteed_months",
     "location", "job_type", "workload", "skills", "experience_years",
-    "education", "remote_type", "work_hours", "benefits",
+    "education", "remote_type", "work_hours", "leave_policy",
+    "benefits", "benefits_structured", "language",
     "source_url", "notes", "priority",
 }
 
@@ -272,13 +274,15 @@ def parse_and_save_jobs(req: JobParseRequest):
             job.mismatches = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
 
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 19)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 23)})",
                 (
                     job.title, job.company, job.salary_min, job.salary_max,
-                    job.salary_type, job.location, job.job_type, job.workload,
+                    job.salary_type, job.salary_guaranteed_months,
+                    job.location, job.job_type, job.workload,
                     job.skills, job.experience_years, job.education,
-                    job.remote_type, job.work_hours, job.benefits,
-                    job.source_url, job.notes, job.priority,
+                    job.remote_type, job.work_hours, job.leave_policy,
+                    job.benefits, job.benefits_structured,
+                    job.language, job.source_url, job.notes, job.priority,
                     job.mismatches, job.raw_text,
                 ),
             )

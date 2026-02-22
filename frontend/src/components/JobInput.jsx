@@ -5,14 +5,19 @@ const PLACEHOLDER = `貼上職缺資訊，例如：
 
 職位：前端工程師
 公司：ABC科技
-薪資：50,000 - 70,000
-地點：台北
+薪資：月薪 50,000 - 70,000
+保障年薪：14個月（含年終2個月）
+地點：台北市信義區
 技能：React, TypeScript, Tailwind
 工作類型：全職
+休假制度：週休二日
+語文條件：英文中等以上
+福利：三節獎金、績效獎金、員工旅遊、旅遊補助、團體保險、教育訓練
 
 ---
 
-可以一次貼多筆，用空行或 --- 分隔`;
+可以一次貼多筆，用空行或 --- 分隔
+也可以直接從 104 / 1111 複製貼上`;
 
 export default function JobInput({ onParsed, loading, setLoading }) {
   const [text, setText] = useState('');

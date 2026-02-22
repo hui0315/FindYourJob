@@ -3,6 +3,7 @@ Regex-based fallback parser for extracting job data from raw text.
 Used when Ollama is not available.
 """
 
+import json
 import re
 from models import JobData
 
@@ -34,6 +35,7 @@ def _extract_single_job(text: str) -> JobData:
     title = _extract_title(text)
     company = _extract_company(text)
     salary_min, salary_max, salary_type = _extract_salary(text)
+    salary_guaranteed_months = _extract_guaranteed_months(text)
     location = _extract_location(text)
     job_type = _extract_job_type(text)
     workload = _extract_workload(text)
@@ -41,6 +43,18 @@ def _extract_single_job(text: str) -> JobData:
     experience_years = _extract_experience(text)
     education = _extract_education(text)
     remote_type = _extract_remote_type(text)
+    leave_policy = _extract_leave_policy(text)
+    benefits_structured = _extract_benefits_structured(text)
+    language = _extract_language(text)
+
+    # Build legacy benefits string from structured data
+    benefits = None
+    if benefits_structured:
+        all_items = []
+        for items in benefits_structured.values():
+            all_items.extend(items)
+        if all_items:
+            benefits = ", ".join(all_items)
 
     return JobData(
         title=title,
@@ -48,6 +62,7 @@ def _extract_single_job(text: str) -> JobData:
         salary_min=salary_min,
         salary_max=salary_max,
         salary_type=salary_type,
+        salary_guaranteed_months=salary_guaranteed_months,
         location=location,
         job_type=job_type,
         workload=workload,
@@ -55,6 +70,10 @@ def _extract_single_job(text: str) -> JobData:
         experience_years=experience_years,
         education=education,
         remote_type=remote_type,
+        leave_policy=leave_policy,
+        benefits=benefits,
+        benefits_structured=json.dumps(benefits_structured, ensure_ascii=False) if benefits_structured else None,
+        language=language,
         raw_text=text,
     )
 
@@ -218,3 +237,142 @@ def _extract_remote_type(text: str) -> str | None:
     if re.search(r'到班|onsite|on[\s-]?site|進辦公室', text, re.IGNORECASE):
         return "onsite"
     return None
+
+
+def _extract_guaranteed_months(text: str) -> int | None:
+    """Extract guaranteed annual salary months (保障年薪月數)."""
+    # "保障14個月" or "保障年薪14個月"
+    m = re.search(r'保障(?:年薪)?\s*(\d+)\s*個月', text)
+    if m:
+        return int(m.group(1))
+    # "年終N個月" → guaranteed = 12 + N
+    m = re.search(r'年終\s*(\d+)\s*個月', text)
+    if m:
+        return 12 + int(m.group(1))
+    return None
+
+
+def _extract_leave_policy(text: str) -> str | None:
+    """Extract leave/holiday policy (休假制度)."""
+    patterns = [
+        r'(?:休假制度|休假|假別)\s*[:：]\s*(.+)',
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            return m.group(1).strip()
+    if re.search(r'週休二日|周休二日', text):
+        return "週休二日"
+    if re.search(r'排班制', text):
+        return "排班制"
+    if re.search(r'見紅休', text):
+        return "見紅休"
+    return None
+
+
+def _extract_language(text: str) -> str | None:
+    """Extract language requirements (語文條件)."""
+    patterns = [
+        r'(?:語文|語言|外語|Language)\s*[:：]\s*(.+)',
+    ]
+    for p in patterns:
+        m = re.search(p, text, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+    # Detect common language mentions
+    langs = []
+    if re.search(r'英文|英語|English', text, re.IGNORECASE):
+        # Try to find proficiency level
+        m = re.search(r'英(?:文|語)\s*(精通|流利|中等|基礎|中上|略懂|聽說讀寫)', text)
+        langs.append(f"英文{m.group(1)}" if m else "英文")
+    if re.search(r'日文|日語|Japanese|日本語', text, re.IGNORECASE):
+        m = re.search(r'日(?:文|語)\s*(?:能力試驗)?\s*[nN]?(\d)', text)
+        langs.append(f"日文N{m.group(1)}" if m else "日文")
+    return ", ".join(langs) if langs else None
+
+
+def _extract_benefits_structured(text: str) -> dict | None:
+    """Extract structured benefits categorized like 104/1111 job boards."""
+    result = {
+        "bonus": [],
+        "insurance": [],
+        "leave": [],
+        "subsidy": [],
+        "system": [],
+        "other": [],
+    }
+
+    # Bonus category (獎金類)
+    bonus_keywords = {
+        "年終獎金": r'年終獎金|年終',
+        "三節獎金": r'三節獎金|三節禮金|三節',
+        "生日禮金": r'生日禮金|生日禮',
+        "績效獎金": r'績效獎金|績效',
+        "全勤獎金": r'全勤獎金|全勤',
+        "員工分紅": r'員工分紅|分紅',
+        "股票選擇權": r'股票選擇權|認股|stock\s*option',
+    }
+    for label, pat in bonus_keywords.items():
+        if re.search(pat, text, re.IGNORECASE):
+            result["bonus"].append(label)
+
+    # Insurance category (保險類)
+    insurance_keywords = {
+        "團體保險": r'團體保險|團保',
+        "意外險": r'意外險',
+    }
+    for label, pat in insurance_keywords.items():
+        if re.search(pat, text, re.IGNORECASE):
+            result["insurance"].append(label)
+
+    # Leave category (休假類)
+    leave_keywords = {
+        "特休優於勞基法": r'特休優於|優於勞基法',
+        "彈性假": r'彈性假|彈性休假',
+        "有薪病假": r'有薪病假|帶薪病假',
+    }
+    for label, pat in leave_keywords.items():
+        if re.search(pat, text, re.IGNORECASE):
+            result["leave"].append(label)
+
+    # Subsidy category (補助類)
+    subsidy_keywords = {
+        "旅遊補助": r'旅遊補助|旅遊津貼',
+        "結婚補助": r'結婚補助|結婚禮金',
+        "生育補助": r'生育補助|生育津貼',
+        "進修補助": r'進修補助|學習補助|教育補助',
+        "交通補助": r'交通補助|交通津貼|通勤補助',
+        "住房補助": r'住房補助|租屋補助|租屋津貼',
+        "餐費補助": r'餐費補助|午餐補助|伙食津貼|伙食費',
+        "健檢補助": r'健檢補助|免費健檢|健康檢查',
+    }
+    for label, pat in subsidy_keywords.items():
+        if re.search(pat, text, re.IGNORECASE):
+            result["subsidy"].append(label)
+
+    # System category (制度類)
+    system_keywords = {
+        "教育訓練": r'教育訓練|培訓',
+        "員工持股": r'員工持股|持股信託',
+        "彈性上下班": r'彈性上下班|彈性工時|flexible\s*hour',
+    }
+    for label, pat in system_keywords.items():
+        if re.search(pat, text, re.IGNORECASE):
+            result["system"].append(label)
+
+    # Other category (其他)
+    other_keywords = {
+        "員工旅遊": r'員工旅遊|公司旅遊',
+        "部門聚餐": r'部門聚餐|團隊聚餐',
+        "免費零食": r'免費零食|零食飲料|下午茶',
+        "健身房": r'健身房|運動設施|gym',
+        "尾牙": r'尾牙',
+        "員工餐廳": r'員工餐廳',
+    }
+    for label, pat in other_keywords.items():
+        if re.search(pat, text, re.IGNORECASE):
+            result["other"].append(label)
+
+    # Only return if we found anything
+    has_any = any(items for items in result.values())
+    return result if has_any else None
