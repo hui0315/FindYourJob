@@ -32,6 +32,7 @@ def init_db():
                 salary_min INTEGER,
                 salary_max INTEGER,
                 salary_type TEXT DEFAULT 'monthly',
+                salary_guaranteed_months INTEGER,
                 location TEXT,
                 job_type TEXT,
                 workload TEXT,
@@ -40,7 +41,10 @@ def init_db():
                 education TEXT,
                 remote_type TEXT,
                 work_hours TEXT,
+                leave_policy TEXT,
                 benefits TEXT,
+                benefits_structured TEXT,
+                language TEXT,
                 source_url TEXT,
                 notes TEXT,
                 priority INTEGER DEFAULT 3,
@@ -49,6 +53,19 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # Migrate existing databases: add new columns if missing
+        existing = {
+            row[1] for row in conn.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        migrations = {
+            "salary_guaranteed_months": "INTEGER",
+            "leave_policy": "TEXT",
+            "benefits_structured": "TEXT",
+            "language": "TEXT",
+        }
+        for col, col_type in migrations.items():
+            if col not in existing:
+                conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {col_type}")
         conn.execute("""
             CREATE TABLE IF NOT EXISTS user_profile (
                 id INTEGER PRIMARY KEY CHECK (id = 1),

@@ -1,6 +1,9 @@
 """
 LLM-based job parser using Ollama (local Qwen2.5-3B).
 Falls back to regex-based mock_parser when Ollama is unavailable.
+
+The system prompt is auto-generated from extraction_schema.JobExtraction,
+so adding a new field there automatically updates the prompt.
 """
 
 import json
@@ -8,37 +11,15 @@ import logging
 import os
 import httpx
 from models import JobData
+from extraction_schema import build_system_prompt, extraction_to_jobdata
 
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE = os.environ.get("OLLAMA_BASE", "http://localhost:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 
-SYSTEM_PROMPT = """你是一個職缺資訊萃取助手。使用者會貼上一段或多段職缺描述文字，請從中萃取結構化資料。
-
-回傳格式必須是一個 JSON 陣列，每個元素代表一筆職缺，包含以下欄位：
-- title: 職位名稱 (string, 必填)
-- company: 公司名稱 (string, 必填，找不到填 "未知公司")
-- salary_min: 最低薪資數字 (integer 或 null)
-- salary_max: 最高薪資數字 (integer 或 null)
-- salary_type: "monthly" | "yearly" | "hourly" | "negotiable"
-- location: 工作地點 (string 或 null)
-- job_type: "full-time" | "part-time" | "contract" | "intern" | null
-- workload: "light" | "moderate" | "heavy" | null (根據描述判斷工作強度)
-- skills: 技能需求，逗號分隔 (string 或 null)
-- experience_years: 要求的最低工作年資 (integer 或 null，例如 "3年以上" → 3，"不拘" → 0)
-- education: 最低學歷要求 (string 或 null): "high_school" | "bachelor" | "master" | "phd" | "none"
-- remote_type: 遠端類型 (string 或 null): "onsite" | "hybrid" | "remote"
-- work_hours: 上班時間描述 (string 或 null，例如 "09:00-18:00"、"排班制")
-- benefits: 福利摘要，逗號分隔 (string 或 null，例如 "年終2個月, 三節獎金, 員工旅遊")
-- source_url: 來源網址 (string 或 null)
-- notes: 其他值得注意的資訊 (string 或 null)
-
-規則：
-- 薪資一律轉成數字，例如 "50K" → 50000, "5萬" → 50000
-- 如果薪資寫「面議」，salary_min 和 salary_max 設為 null，salary_type 設為 "negotiable"
-- 如果文字包含多筆職缺（用空行、分隔線等區隔），回傳多個元素
-- 只回傳 JSON 陣列，不要有其他文字"""
+# Auto-generated from JobExtraction model — no manual maintenance needed
+SYSTEM_PROMPT = build_system_prompt()
 
 
 def check_ollama_available() -> bool:
@@ -90,39 +71,8 @@ def parse_with_ollama(raw_text: str) -> list[JobData]:
     else:
         raise ValueError(f"Unexpected response format: {type(parsed)}")
 
-    jobs = []
-    for item in items:
-        jobs.append(JobData(
-            title=item.get("title", "未知職位"),
-            company=item.get("company", "未知公司"),
-            salary_min=_safe_int(item.get("salary_min")),
-            salary_max=_safe_int(item.get("salary_max")),
-            salary_type=item.get("salary_type", "monthly"),
-            location=item.get("location"),
-            job_type=item.get("job_type"),
-            workload=item.get("workload"),
-            skills=item.get("skills"),
-            experience_years=_safe_int(item.get("experience_years")),
-            education=item.get("education"),
-            remote_type=item.get("remote_type"),
-            work_hours=item.get("work_hours"),
-            benefits=item.get("benefits"),
-            source_url=item.get("source_url"),
-            notes=item.get("notes"),
-            raw_text=raw_text,
-        ))
-
-    return jobs
-
-
-def _safe_int(val) -> int | None:
-    """Safely convert a value to int, returning None on failure."""
-    if val is None:
-        return None
-    try:
-        return int(val)
-    except (ValueError, TypeError):
-        return None
+    # Convert each item through the extraction schema → JobData
+    return [extraction_to_jobdata(item, raw_text) for item in items]
 
 
 def parse_job_text(raw_text: str) -> list[JobData]:

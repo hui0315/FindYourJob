@@ -51,13 +51,34 @@ const PRIORITY_LABELS = {
   5: { text: '最低', color: 'bg-gray-200 text-gray-600' },
 };
 
-function formatSalary(min, max, type) {
+function formatSalary(min, max, type, guaranteedMonths) {
   if (type === 'negotiable') return '面議';
   if (!min && !max) return '-';
   const fmt = (n) => n?.toLocaleString() ?? '?';
   const prefix = SALARY_TYPE_LABELS[type] || '';
-  if (min === max || !max) return `${prefix} ${fmt(min)}`;
-  return `${prefix} ${fmt(min)} - ${fmt(max)}`;
+  let base;
+  if (min === max || !max) base = `${prefix} ${fmt(min)}`;
+  else base = `${prefix} ${fmt(min)} - ${fmt(max)}`;
+  if (guaranteedMonths) base += ` (${guaranteedMonths}M)`;
+  return base;
+}
+
+const BENEFIT_CATEGORY_LABELS = {
+  bonus: { label: '獎金', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  insurance: { label: '保險', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  leave: { label: '休假', color: 'bg-green-50 text-green-700 border-green-200' },
+  subsidy: { label: '補助', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  system: { label: '制度', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
+  other: { label: '其他', color: 'bg-gray-50 text-gray-600 border-gray-200' },
+};
+
+function parseBenefitsStructured(benefitsStructured) {
+  if (!benefitsStructured) return null;
+  try {
+    return JSON.parse(benefitsStructured);
+  } catch {
+    return null;
+  }
 }
 
 function parseMismatches(mismatches) {
@@ -207,7 +228,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     hasMismatch && mismatches.some((m) => m.type === 'salary')
                       ? 'text-red-600' : 'text-green-700'
                   }`}>
-                    {formatSalary(job.salary_min, job.salary_max, job.salary_type)}
+                    {formatSalary(job.salary_min, job.salary_max, job.salary_type, job.salary_guaranteed_months)}
                   </p>
                 </div>
 
@@ -332,12 +353,57 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         )}
                       </div>
                     )}
-                    {job.benefits && (
-                      <div className="col-span-2">
-                        <span className="text-gray-400">福利：</span>
-                        <span className="text-gray-700">{job.benefits}</span>
+                    {job.salary_guaranteed_months && (
+                      <div>
+                        <span className="text-gray-400">保障年薪：</span>
+                        <span className="text-green-700 font-medium">{job.salary_guaranteed_months} 個月</span>
                       </div>
                     )}
+                    {job.leave_policy && (
+                      <div>
+                        <span className="text-gray-400">休假制度：</span>
+                        <span className="text-gray-700">{job.leave_policy}</span>
+                      </div>
+                    )}
+                    {job.language && (
+                      <div>
+                        <span className="text-gray-400">語文條件：</span>
+                        <span className="text-gray-700">{job.language}</span>
+                      </div>
+                    )}
+                    {(() => {
+                      const bs = parseBenefitsStructured(job.benefits_structured);
+                      if (!bs) {
+                        // Fallback to legacy benefits text
+                        return job.benefits ? (
+                          <div className="col-span-2">
+                            <span className="text-gray-400">福利：</span>
+                            <span className="text-gray-700">{job.benefits}</span>
+                          </div>
+                        ) : null;
+                      }
+                      const categories = Object.entries(bs).filter(([, items]) => items.length > 0);
+                      if (categories.length === 0) return null;
+                      return (
+                        <div className="col-span-2">
+                          <span className="text-gray-400">福利制度：</span>
+                          <div className="flex flex-wrap gap-1.5 mt-1">
+                            {categories.map(([cat, items]) => {
+                              const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
+                              return items.map((item) => (
+                                <span
+                                  key={`${cat}-${item}`}
+                                  className={`text-xs px-2 py-0.5 rounded border ${meta.color}`}
+                                  title={meta.label}
+                                >
+                                  {item}
+                                </span>
+                              ));
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {job.source_url && (
                       <div className="col-span-2">
                         <span className="text-gray-400">來源：</span>
