@@ -48,7 +48,7 @@ JOB_COLUMNS = (
     "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
     "location, job_type, workload, description, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
-    "language, source_url, notes, priority, mismatches, raw_text, "
+    "language, source_url, notes, status, priority, mismatches, raw_text, "
     "field_metadata, edit_history"
 )
 
@@ -60,7 +60,7 @@ UPDATABLE_COLUMNS = {
     "skills", "experience_years",
     "education", "remote_type", "work_hours", "leave_policy",
     "benefits", "benefits_structured", "language",
-    "source_url", "notes", "priority",
+    "source_url", "notes", "status", "priority",
 }
 
 COMPANY_COLUMNS = (
@@ -732,7 +732,7 @@ _TRACKABLE_FIELDS = {
     "salary_guaranteed_months", "location", "job_type", "workload",
     "description", "skills", "experience_years", "education", "remote_type",
     "work_hours", "leave_policy", "benefits", "benefits_structured",
-    "language", "source_url", "notes", "priority",
+    "language", "source_url", "notes", "status", "priority",
 }
 
 
@@ -824,16 +824,17 @@ def _save_jobs_to_db(
             job.edit_history = json.dumps([history_entry], ensure_ascii=False)
 
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 26)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 28)})",
                 (
                     job.title, job.company, job.company_id,
                     job.salary_min, job.salary_max,
                     job.salary_type, job.salary_guaranteed_months,
                     job.location, job.job_type, job.workload,
-                    job.skills, job.experience_years, job.education,
+                    job.description, job.skills, job.experience_years, job.education,
                     job.remote_type, job.work_hours, job.leave_policy,
                     job.benefits, job.benefits_structured,
-                    job.language, job.source_url, job.notes, job.priority,
+                    job.language, job.source_url, job.notes,
+                    job.status, job.priority,
                     job.mismatches, job.raw_text,
                     job.field_metadata, job.edit_history,
                 ),
@@ -920,8 +921,9 @@ def list_jobs(sort_by: str = "created_at", order: str = "desc"):
     if order not in ("asc", "desc"):
         order = "desc"
 
-    # skill_match is computed at runtime, so we sort in Python
-    if sort_by == "skill_match":
+    # skill_match and status use custom ordering, so sort in Python
+    python_sort = sort_by in ("skill_match", "status")
+    if python_sort:
         db_sort = "created_at"
     elif sort_by not in allowed_sort:
         sort_by = "created_at"
@@ -945,6 +947,17 @@ def list_jobs(sort_by: str = "created_at", order: str = "desc"):
                 except (json.JSONDecodeError, TypeError):
                     return -1
             jobs.sort(key=_match_score, reverse=reverse)
+        elif sort_by == "status":
+            # Order by urgency: not_applied > interviewing > applied > offered > rejected
+            _STATUS_ORDER = {
+                "not_applied": 0, "interviewing": 1, "applied": 2,
+                "offered": 3, "rejected": 4,
+            }
+            reverse = order == "desc"
+            jobs.sort(
+                key=lambda j: _STATUS_ORDER.get(j.status or "not_applied", 9),
+                reverse=reverse,
+            )
 
         return jobs
 
@@ -1037,7 +1050,7 @@ _FIELD_LABELS = {
     "work_hours": "上班時間", "leave_policy": "休假制度",
     "benefits": "福利", "benefits_structured": "結構化福利",
     "language": "語文條件", "source_url": "來源連結",
-    "notes": "備註", "priority": "優先順序",
+    "notes": "備註", "status": "投遞狀態", "priority": "優先順序",
 }
 
 

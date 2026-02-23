@@ -43,7 +43,16 @@ const PRIORITY_OPTIONS = [
   { value: 5, label: '5 - 最低' },
 ];
 
+const STATUS_OPTIONS = [
+  { value: 'not_applied', label: '未投遞' },
+  { value: 'applied', label: '已投遞' },
+  { value: 'interviewing', label: '面試中' },
+  { value: 'offered', label: '已取得 Offer' },
+  { value: 'rejected', label: '未錄取' },
+];
+
 const EDITABLE_FIELDS = [
+  { key: 'status', label: '投遞狀態', type: 'select', options: STATUS_OPTIONS },
   { key: 'title', label: '職位名稱', type: 'text' },
   { key: 'company', label: '公司名稱', type: 'text' },
   { key: 'salary_min', label: '最低薪資', type: 'number' },
@@ -70,7 +79,7 @@ const EDITABLE_FIELDS = [
 // Lookup maps for displaying enum values in Chinese
 const ENUM_DISPLAY = Object.fromEntries(
   [SALARY_TYPE_OPTIONS, JOB_TYPE_OPTIONS, WORKLOAD_OPTIONS,
-   EDUCATION_OPTIONS, REMOTE_OPTIONS, PRIORITY_OPTIONS]
+   EDUCATION_OPTIONS, REMOTE_OPTIONS, PRIORITY_OPTIONS, STATUS_OPTIONS]
     .flat()
     .map((o) => [String(o.value), o.label])
 );

@@ -4,6 +4,7 @@ import JobEditModal from './JobEditModal';
 const SORT_OPTIONS = [
   { key: 'created_at', label: '加入時間', icon: '⏱' },
   { key: 'salary_max', label: '薪資', icon: '$' },
+  { key: 'status', label: '投遞狀態', icon: '📋' },
   { key: 'priority', label: '優先順序', icon: '★' },
   { key: 'skill_match', label: '匹配度', icon: '⚡' },
 ];
@@ -48,6 +49,14 @@ const PRIORITY_LABELS = {
   3: { text: '中', color: 'bg-yellow-400 text-gray-800' },
   4: { text: '低', color: 'bg-blue-200 text-blue-800' },
   5: { text: '最低', color: 'bg-gray-200 text-gray-600' },
+};
+
+const STATUS_LABELS = {
+  not_applied:  { text: '未投遞',       color: 'bg-red-100 text-red-700 border-red-300' },
+  applied:      { text: '已投遞',       color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  interviewing: { text: '面試中',       color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  offered:      { text: '已取得 Offer', color: 'bg-green-100 text-green-700 border-green-300' },
+  rejected:     { text: '未錄取',       color: 'bg-gray-100 text-gray-400 border-gray-300' },
 };
 
 function formatSalary(min, max, type, guaranteedMonths) {
@@ -195,7 +204,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
     if (sortBy === key) {
       onSortChange(key, order === 'asc' ? 'desc' : 'asc');
     } else {
-      const defaultOrder = key === 'priority' ? 'asc' : 'desc';
+      const defaultOrder = (key === 'priority' || key === 'status') ? 'asc' : 'desc';
       onSortChange(key, defaultOrder);
     }
   }
@@ -253,7 +262,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 ${hasMismatch
                   ? 'border-2 border-red-300'
                   : 'border border-gray-200'
-                }`}
+                }${job.status === 'rejected' ? ' opacity-50' : ''}`}
             >
               {/* Mismatch banner */}
               {hasMismatch && (
@@ -299,6 +308,14 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         {REMOTE_LABELS[job.remote_type] || job.remote_type}
                       </span>
                     )}
+                    {(() => {
+                      const st = STATUS_LABELS[job.status] || STATUS_LABELS.not_applied;
+                      return (
+                        <span className={`text-xs px-2 py-0.5 rounded border font-medium ${st.color}`}>
+                          {st.text}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-sm text-gray-500 truncate">
                     {job.company_data ? (

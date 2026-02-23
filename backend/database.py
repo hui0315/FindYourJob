@@ -79,6 +79,7 @@ def init_db():
                 language TEXT,
                 source_url TEXT,
                 notes TEXT,
+                status TEXT DEFAULT 'not_applied',
                 priority INTEGER DEFAULT 3,
                 mismatches TEXT,
                 raw_text TEXT,
@@ -101,6 +102,7 @@ def init_db():
             "edit_history": "TEXT",
             "company_id": "INTEGER REFERENCES companies(id)",
             "description": "TEXT",
+            "status": "TEXT DEFAULT 'not_applied'",
         }
         for col, col_type in migrations.items():
             if col not in existing:
