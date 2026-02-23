@@ -53,6 +53,7 @@ const EDITABLE_FIELDS = [
   { key: 'location', label: '工作地點', type: 'text' },
   { key: 'job_type', label: '工作類型', type: 'select', options: JOB_TYPE_OPTIONS },
   { key: 'workload', label: '工作量', type: 'select', options: WORKLOAD_OPTIONS },
+  { key: 'description', label: '工作內容', type: 'textarea', rows: 4 },
   { key: 'skills', label: '技能需求', type: 'text' },
   { key: 'experience_years', label: '經驗年數', type: 'number' },
   { key: 'education', label: '學歷要求', type: 'select', options: EDUCATION_OPTIONS },
@@ -848,7 +849,7 @@ function EditFieldInput({ field, currentValue, editValue, onChange, isDirty, met
 }
 
 
-/** Shared input widget for text/number/select fields */
+/** Shared input widget for text/number/select/textarea fields */
 function InputWidget({ field, value, onChange, placeholder }) {
   if (field.type === 'select') {
     return (
@@ -863,6 +864,18 @@ function InputWidget({ field, value, onChange, placeholder }) {
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
+    );
+  }
+  if (field.type === 'textarea') {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                   focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+        rows={field.rows || 3}
+        placeholder={placeholder}
+      />
     );
   }
   return (

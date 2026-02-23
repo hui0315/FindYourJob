@@ -454,6 +454,15 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         )}
                       </div>
                     )}
+                    {job.description && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400">工作內容：</span>
+                        <SourceBadge fieldKey="description" fieldMeta={fieldMeta} />
+                        <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
+                          {job.description}
+                        </div>
+                      </div>
+                    )}
                     {job.salary_guaranteed_months && (
                       <div>
                         <span className="text-gray-400">保障年薪：</span>

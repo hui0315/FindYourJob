@@ -46,7 +46,7 @@ def normalize_salary_to_monthly(amount: int | None, salary_type: str) -> int | N
 
 JOB_COLUMNS = (
     "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
-    "location, job_type, workload, skills, experience_years, "
+    "location, job_type, workload, description, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
     "language, source_url, notes, priority, mismatches, raw_text, "
     "field_metadata, edit_history"
@@ -56,7 +56,8 @@ UPDATABLE_COLUMNS = {
     "title", "company", "company_id",
     "salary_min", "salary_max", "salary_type",
     "salary_guaranteed_months",
-    "location", "job_type", "workload", "skills", "experience_years",
+    "location", "job_type", "workload", "description",
+    "skills", "experience_years",
     "education", "remote_type", "work_hours", "leave_policy",
     "benefits", "benefits_structured", "language",
     "source_url", "notes", "priority",
@@ -729,7 +730,7 @@ def _clean_json_text(text: str) -> str:
 _TRACKABLE_FIELDS = {
     "title", "company", "salary_min", "salary_max", "salary_type",
     "salary_guaranteed_months", "location", "job_type", "workload",
-    "skills", "experience_years", "education", "remote_type",
+    "description", "skills", "experience_years", "education", "remote_type",
     "work_hours", "leave_policy", "benefits", "benefits_structured",
     "language", "source_url", "notes", "priority",
 }
@@ -1010,6 +1011,7 @@ _FIELD_LABELS = {
     "salary_min": "最低薪資", "salary_max": "最高薪資",
     "salary_type": "薪資類型", "salary_guaranteed_months": "保障月數",
     "location": "工作地點", "job_type": "工作類型", "workload": "工作量",
+    "description": "工作內容",
     "skills": "技能需求", "experience_years": "經驗年數",
     "education": "學歷要求", "remote_type": "遠端類型",
     "work_hours": "上班時間", "leave_policy": "休假制度",

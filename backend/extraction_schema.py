@@ -72,6 +72,10 @@ class JobExtraction(BaseModel):
     workload: Optional[str] = Field(
         None, description="工作強度：light / moderate / heavy"
     )
+    description: Optional[str] = Field(
+        None,
+        description="工作內容／職責，用條列式整理（每點換行，前面加「- 」）",
+    )
     skills: Optional[str] = Field(None, description="技能需求，逗號分隔")
     experience_years: Optional[int] = Field(
         None, description="最低工作年資（不拘→0）"
@@ -194,7 +198,8 @@ _RULES = """規則：
 6. 只回傳 JSON，不要其他文字
 7. 所有文字欄位請使用繁體中文
 8. 如果提供的文字不是職缺資訊，只回傳 {"error": "非職缺資訊，無法解析"}
-9. 聯絡人資訊（contact_name, contact_email 等）如有提及請填入，找不到填 null"""
+9. 聯絡人資訊（contact_name, contact_email 等）如有提及請填入，找不到填 null
+10. description 請用條列式整理工作內容，每點前面加「- 」，換行分隔"""
 
 
 def build_system_prompt() -> str:

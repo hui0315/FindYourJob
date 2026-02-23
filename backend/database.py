@@ -67,6 +67,7 @@ def init_db():
                 location TEXT,
                 job_type TEXT,
                 workload TEXT,
+                description TEXT,
                 skills TEXT,
                 experience_years INTEGER,
                 education TEXT,
@@ -99,6 +100,7 @@ def init_db():
             "field_metadata": "TEXT",
             "edit_history": "TEXT",
             "company_id": "INTEGER REFERENCES companies(id)",
+            "description": "TEXT",
         }
         for col, col_type in migrations.items():
             if col not in existing:
