@@ -454,7 +454,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 </div>
               )}
 
-              {/* Save button */}
+              {/* Save / Close buttons */}
               <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
                 <button
                   onClick={handleManualSave}
@@ -464,6 +464,13 @@ export default function JobEditModal({ job, onSave, onClose }) {
                              transition-colors"
                 >
                   {loading ? '儲存中...' : '儲存修改'}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-5 py-2 text-gray-500 border border-gray-300 rounded-lg text-sm
+                             hover:bg-gray-50 transition-colors"
+                >
+                  關閉
                 </button>
                 {dirtyFields.size > 0 && (
                   <span className="text-xs text-gray-400 self-center">
