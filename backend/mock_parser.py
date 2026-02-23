@@ -43,6 +43,7 @@ def _extract_single_job(text: str) -> tuple[JobData, dict]:
     salary_min, salary_max, salary_type = _extract_salary(text)
     salary_guaranteed_months = _extract_guaranteed_months(text)
     location = _extract_location(text)
+    city = extract_city(location, text)
     job_type = _extract_job_type(text)
     workload = _extract_workload(text)
     skills = _extract_skills(text)
@@ -73,6 +74,7 @@ def _extract_single_job(text: str) -> tuple[JobData, dict]:
         salary_type=salary_type,
         salary_guaranteed_months=salary_guaranteed_months,
         location=location,
+        city=city,
         job_type=job_type,
         workload=workload,
         skills=skills,
@@ -159,6 +161,52 @@ def _extract_location(text: str) -> str | None:
     for city in cities:
         if city.lower() in text.lower():
             return city
+    return None
+
+
+def extract_city(location: str | None, text: str = "") -> str | None:
+    """Extract city/county from a location string or raw text.
+
+    Checks for Taiwan county/city names. Exported for use by migration backfill.
+    """
+    # Full list of Taiwan cities/counties (canonical names)
+    _TW_CITIES = [
+        ("台北市", ["台北市", "台北"]),
+        ("新北市", ["新北市", "新北"]),
+        ("桃園市", ["桃園市", "桃園"]),
+        ("台中市", ["台中市", "台中", "臺中市", "臺中"]),
+        ("台南市", ["台南市", "台南", "臺南市", "臺南"]),
+        ("高雄市", ["高雄市", "高雄"]),
+        ("新竹市", ["新竹市"]),
+        ("新竹縣", ["新竹縣"]),
+        ("新竹", ["新竹"]),  # fallback if no 市/縣 specified
+        ("基隆市", ["基隆市", "基隆"]),
+        ("嘉義市", ["嘉義市"]),
+        ("嘉義縣", ["嘉義縣"]),
+        ("嘉義", ["嘉義"]),
+        ("苗栗縣", ["苗栗縣", "苗栗"]),
+        ("彰化縣", ["彰化縣", "彰化"]),
+        ("南投縣", ["南投縣", "南投"]),
+        ("雲林縣", ["雲林縣", "雲林"]),
+        ("屏東縣", ["屏東縣", "屏東"]),
+        ("宜蘭縣", ["宜蘭縣", "宜蘭"]),
+        ("花蓮縣", ["花蓮縣", "花蓮"]),
+        ("台東縣", ["台東縣", "台東", "臺東縣", "臺東"]),
+        ("澎湖縣", ["澎湖縣", "澎湖"]),
+        ("金門縣", ["金門縣", "金門"]),
+        ("連江縣", ["連江縣", "馬祖"]),
+        ("遠端", ["遠端", "remote"]),
+    ]
+
+    # Try location first, then raw text
+    for source in [location, text]:
+        if not source:
+            continue
+        lower = source.lower()
+        for canonical, aliases in _TW_CITIES:
+            for alias in aliases:
+                if alias.lower() in lower:
+                    return canonical
     return None
 
 

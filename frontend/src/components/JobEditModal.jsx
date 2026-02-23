@@ -60,6 +60,7 @@ const EDITABLE_FIELDS = [
   { key: 'salary_type', label: '薪資類型', type: 'select', options: SALARY_TYPE_OPTIONS },
   { key: 'salary_guaranteed_months', label: '保障月數', type: 'number' },
   { key: 'location', label: '工作地點', type: 'text' },
+  { key: 'city', label: '縣市', type: 'text' },
   { key: 'job_type', label: '工作類型', type: 'select', options: JOB_TYPE_OPTIONS },
   { key: 'workload', label: '工作量', type: 'select', options: WORKLOAD_OPTIONS },
   { key: 'description', label: '工作內容', type: 'textarea', rows: 4 },
@@ -91,12 +92,6 @@ const SOURCE_LABELS = {
   regex: 'Regex 解析',
 };
 
-const ACTION_LABELS = {
-  created: '建立',
-  supplement: '補充資料',
-  manual_edit: '手動編輯',
-};
-
 function formatTimestamp(isoStr) {
   if (!isoStr) return '';
   try {
@@ -113,19 +108,12 @@ function parseFieldMetadata(job) {
   try { return JSON.parse(job.field_metadata); } catch { return {}; }
 }
 
-function parseEditHistory(job) {
-  if (!job.edit_history) return [];
-  try { return JSON.parse(job.edit_history); } catch { return []; }
-}
-
 /** Format a raw field value for display in conflict UI */
 function displayValue(val) {
   if (val == null) return '-';
   const s = String(val);
   return ENUM_DISPLAY[s] || s;
 }
-
-const FIELD_LABELS = Object.fromEntries(EDITABLE_FIELDS.map((f) => [f.key, f.label]));
 
 export default function JobEditModal({ job, onSave, onClose }) {
   const [activeTab, setActiveTab] = useState('manual');
@@ -151,7 +139,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
   const [editSectionOpen, setEditSectionOpen] = useState(false);
 
   const fieldMeta = parseFieldMetadata(job);
-  const editHistory = parseEditHistory(job);
 
   useEffect(() => {
     fetchPromptTemplate().then((p) => { if (p) setPromptTemplate(p); });
@@ -362,7 +349,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
           {[
             { key: 'manual', label: '手動填寫', badge: emptyFields.length > 0 ? `${emptyFields.length} 待填` : null },
             { key: 'supplement', label: '補充資料' },
-            { key: 'history', label: '編輯紀錄' },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -453,7 +439,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 </div>
               )}
 
-              {/* Save button */}
+              {/* Save button + Close */}
               <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
                 <button
                   onClick={handleManualSave}
@@ -463,6 +449,13 @@ export default function JobEditModal({ job, onSave, onClose }) {
                              transition-colors"
                 >
                   {loading ? '儲存中...' : '儲存修改'}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-5 py-2 text-gray-500 border border-gray-300 rounded-lg text-sm
+                             hover:bg-gray-50 transition-colors"
+                >
+                  關閉
                 </button>
                 {dirtyFields.size > 0 && (
                   <span className="text-xs text-gray-400 self-center">
@@ -749,52 +742,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
             </div>
           )}
 
-          {/* ═══ Tab: Edit History ═══ */}
-          {activeTab === 'history' && (
-            <div>
-              {editHistory.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">
-                  尚無編輯紀錄
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {[...editHistory].reverse().map((entry, i) => (
-                    <div key={i} className="border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                          ${entry.source === 'user'
-                            ? 'bg-teal-100 text-teal-700'
-                            : entry.source === 'import'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}>
-                          {SOURCE_LABELS[entry.source] || entry.source}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {ACTION_LABELS[entry.action] || entry.action}
-                        </span>
-                        <span className="text-xs text-gray-400 ml-auto">
-                          {formatTimestamp(entry.timestamp)}
-                        </span>
-                      </div>
-                      {entry.fields_updated && entry.fields_updated.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {entry.fields_updated.map((f) => (
-                            <span
-                              key={f}
-                              className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
-                            >
-                              {FIELD_LABELS[f] || f}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>

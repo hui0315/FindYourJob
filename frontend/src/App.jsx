@@ -3,7 +3,7 @@ import JobInput from './components/JobInput';
 import JobTable from './components/JobTable';
 import ProfileSettings from './components/ProfileSettings';
 import CompanyManager from './components/CompanyManager';
-import { fetchJobs, deleteJob, deleteAllJobs, fetchStatus } from './api';
+import { fetchJobs, deleteJob, deleteAllJobs, fetchStatus, fetchCities } from './api';
 
 export default function App() {
   const [jobs, setJobs] = useState([]);
@@ -12,24 +12,51 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState('input'); // 'input' | 'table' | 'profile' | 'companies'
   const [status, setStatus] = useState(null);
+  const [allCities, setAllCities] = useState([]);           // all distinct cities
+  const [selectedCities, setSelectedCities] = useState(null); // null = not yet loaded
+
+  const loadCities = useCallback(async () => {
+    const cities = await fetchCities();
+    setAllCities(cities);
+    setSelectedCities((prev) => {
+      if (prev === null) return cities; // first load: select all
+      // On refresh: keep existing selections, auto-select any new cities
+      const newCities = cities.filter((c) => !prev.includes(c));
+      return newCities.length > 0 ? [...prev, ...newCities] : prev;
+    });
+  }, []);
 
   const loadJobs = useCallback(async () => {
     try {
-      const data = await fetchJobs(sortBy, order);
+      // If filter is active (allCities exist) but nothing selected → show empty
+      if (selectedCities && selectedCities.length === 0 && allCities.length > 0) {
+        setJobs([]);
+        return;
+      }
+      const citiesToSend = selectedCities || [];
+      const data = await fetchJobs(sortBy, order, citiesToSend);
       setJobs(data);
     } catch {
       // silently fail on initial load
     }
-  }, [sortBy, order]);
+  }, [sortBy, order, selectedCities, allCities]);
 
   useEffect(() => {
-    loadJobs();
+    loadCities();
     fetchStatus().then(setStatus);
-  }, [loadJobs]);
+  }, [loadCities]);
+
+  useEffect(() => {
+    if (selectedCities !== null) {
+      loadJobs();
+    }
+  }, [loadJobs, selectedCities]);
 
   function handleParsed(newJobs) {
     setJobs((prev) => [...newJobs, ...prev]);
     setView('table');
+    // Refresh cities since new jobs may have new cities
+    loadCities();
   }
 
   function handleSortChange(key, dir) {
@@ -47,6 +74,7 @@ export default function App() {
     try {
       await deleteJob(id);
       setJobs((prev) => prev.filter((j) => j.id !== id));
+      loadCities();
     } catch {
       alert('刪除失敗');
     }
@@ -57,6 +85,8 @@ export default function App() {
     try {
       await deleteAllJobs();
       setJobs([]);
+      setAllCities([]);
+      setSelectedCities([]);
     } catch {
       alert('清除失敗');
     }
@@ -157,6 +187,9 @@ export default function App() {
               onDelete={handleDelete}
               onJobUpdated={handleJobUpdated}
               onViewCompany={handleViewCompany}
+              allCities={allCities}
+              selectedCities={selectedCities || []}
+              onCityFilterChange={setSelectedCities}
             />
           </div>
         )}

@@ -11,6 +11,7 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from models import JobData, CompanyData
+from mock_parser import extract_city
 
 
 # ── Nested model for structured benefits ──────────────────
@@ -65,7 +66,11 @@ class JobExtraction(BaseModel):
     salary_guaranteed_months: Optional[int] = Field(
         None, description="保障年薪月數（「年終2個月」→ 14）"
     )
-    location: Optional[str] = Field(None, description="工作地點")
+    location: Optional[str] = Field(None, description="工作地點（完整地址）")
+    city: Optional[str] = Field(
+        None,
+        description="工作地點所在縣市（如 台北市、新北市、新竹縣、台中市、遠端）",
+    )
     job_type: Optional[str] = Field(
         None, description="full-time / part-time / contract / intern"
     )
@@ -267,6 +272,10 @@ def extraction_to_jobdata(item: dict, raw_text: str) -> tuple[JobData, dict]:
         data["benefits_structured"] = json.dumps(bs, ensure_ascii=False) if bs else None
     else:
         data["benefits_structured"] = None
+
+    # Auto-derive city from location if not provided by LLM
+    if not data.get("city") and data.get("location"):
+        data["city"] = extract_city(data["location"], raw_text)
 
     data["raw_text"] = raw_text
     return JobData(**data), company_info

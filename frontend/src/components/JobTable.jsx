@@ -181,6 +181,46 @@ const SOURCE_BADGE_LABELS = {
   regex: 'Regex',
 };
 
+const HISTORY_SOURCE_LABELS = {
+  llm: '模型解析',
+  import: 'LLM 匯入',
+  user: '手動填寫',
+  regex: 'Regex 解析',
+};
+
+const HISTORY_ACTION_LABELS = {
+  created: '建立',
+  supplement: '補充資料',
+  manual_edit: '手動編輯',
+};
+
+function parseEditHistory(job) {
+  if (!job.edit_history) return [];
+  try { return JSON.parse(job.edit_history); } catch { return []; }
+}
+
+function formatTimestamp(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return isoStr;
+  }
+}
+
+function shortTimestamp(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch {
+    return isoStr;
+  }
+}
+
 function parseFieldMeta(job) {
   if (!job.field_metadata) return {};
   try { return JSON.parse(job.field_metadata); } catch { return {}; }
@@ -196,9 +236,21 @@ function SourceBadge({ fieldKey, fieldMeta }) {
   );
 }
 
-export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany }) {
+const HISTORY_FIELD_LABELS = {
+  status: '投遞狀態', title: '職位名稱', company: '公司名稱',
+  salary_min: '最低薪資', salary_max: '最高薪資', salary_type: '薪資類型',
+  salary_guaranteed_months: '保障月數', location: '工作地點', city: '縣市',
+  job_type: '工作類型', workload: '工作量', description: '工作內容',
+  skills: '技能需求', experience_years: '經驗年數', education: '學歷要求',
+  remote_type: '遠端類型', work_hours: '上班時間', leave_policy: '休假制度',
+  benefits: '福利', language: '語文條件', source_url: '來源連結',
+  notes: '備註', priority: '優先順序',
+};
+
+export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
+  const [historyJob, setHistoryJob] = useState(null);
 
   function handleSort(key) {
     if (sortBy === key) {
@@ -209,7 +261,8 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
     }
   }
 
-  if (jobs.length === 0) {
+  // Show empty state only when there are truly no jobs AND no city filters to show
+  if (jobs.length === 0 && (!allCities || allCities.length === 0)) {
     return (
       <div className="text-center py-16 text-gray-400">
         <p className="text-4xl mb-4">📋</p>
@@ -242,6 +295,65 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           </button>
         ))}
       </div>
+
+      {/* City filter */}
+      {allCities && allCities.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-sm text-gray-500 mr-1">篩選：</span>
+          {/* Select-all checkbox */}
+          <label className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
+            selectedCities.length === allCities.length
+              ? 'bg-blue-100 text-blue-700 border-blue-400 font-medium'
+              : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400'
+          }`}>
+            <input
+              type="checkbox"
+              checked={selectedCities.length === allCities.length}
+              onChange={(e) => {
+                onCityFilterChange(e.target.checked ? [...allCities] : []);
+              }}
+              className="accent-blue-600 w-3.5 h-3.5"
+            />
+            全選
+          </label>
+          <span className="text-gray-300">|</span>
+          {allCities.map((city) => {
+            const checked = selectedCities.includes(city);
+            return (
+              <label
+                key={city}
+                className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
+                  checked
+                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                    : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => {
+                    if (checked) {
+                      onCityFilterChange(selectedCities.filter((c) => c !== city));
+                    } else {
+                      onCityFilterChange([...selectedCities, city]);
+                    }
+                  }}
+                  className="accent-blue-600 w-3.5 h-3.5"
+                />
+                {city}
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty state when filtering results in 0 jobs */}
+      {jobs.length === 0 && (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg">沒有符合篩選條件的職缺</p>
+          <p className="text-sm mt-1">請調整上方縣市篩選</p>
+        </div>
+      )}
 
       {/* Job cards */}
       <div className="space-y-3">
@@ -344,12 +456,12 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                   </p>
                 </div>
 
-                {/* Location */}
+                {/* City */}
                 <div className="shrink-0 w-20 text-center">
                   <p className={`text-sm ${
                     hasMismatch && mismatches.some((m) => m.type === 'location')
                       ? 'text-red-600 font-medium' : 'text-gray-500'
-                  }`}>{job.location || '-'}</p>
+                  }`}>{job.city || '-'}</p>
                 </div>
 
                 {/* Workload */}
@@ -385,7 +497,19 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
               {expanded && (
                 <div className="px-4 pb-4 pt-0 border-t border-gray-100">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-3 text-sm">
-                    {/* New fields */}
+                    {/* Location detail */}
+                    {job.location && (
+                      <div>
+                        <span className="text-gray-400">工作地點：</span>
+                        <span className={
+                          hasMismatch && mismatches.some((m) => m.type === 'location')
+                            ? 'text-red-600 font-medium' : 'text-gray-700'
+                        }>
+                          {job.location}
+                        </span>
+                        <SourceBadge fieldKey="location" fieldMeta={fieldMeta} />
+                      </div>
+                    )}
                     {job.experience_years != null && (
                       <div>
                         <span className="text-gray-400">經驗要求：</span>
@@ -613,7 +737,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       </details>
                     )}
                   </div>
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex items-center gap-2 mt-3">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -634,6 +758,25 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     >
                       刪除
                     </button>
+                    {/* History button — right-aligned */}
+                    {(() => {
+                      const history = parseEditHistory(job);
+                      if (history.length === 0) return null;
+                      const lastEntry = history[history.length - 1];
+                      return (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setHistoryJob(job);
+                          }}
+                          className="ml-auto flex items-center gap-1.5 px-2 py-1 text-xs
+                                     text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          <span>&#x1f4dd;</span>
+                          <span>{shortTimestamp(lastEntry.timestamp)}</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -665,6 +808,80 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           }}
           onClose={() => setEditingJob(null)}
         />
+      )}
+
+      {/* History Popup */}
+      {historyJob && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setHistoryJob(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-800">
+                編輯紀錄 — {historyJob.title}
+              </h3>
+              <button
+                onClick={() => setHistoryJob(null)}
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
+              >
+                x
+              </button>
+            </div>
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+              {(() => {
+                const history = parseEditHistory(historyJob);
+                if (history.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-400 text-center py-6">
+                      尚無編輯紀錄
+                    </p>
+                  );
+                }
+                return (
+                  <div className="space-y-3">
+                    {[...history].reverse().map((entry, i) => (
+                      <div key={i} className="border border-gray-200 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium
+                            ${entry.source === 'user'
+                              ? 'bg-teal-100 text-teal-700'
+                              : entry.source === 'import'
+                                ? 'bg-purple-100 text-purple-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                            {HISTORY_SOURCE_LABELS[entry.source] || entry.source}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {HISTORY_ACTION_LABELS[entry.action] || entry.action}
+                          </span>
+                          <span className="text-xs text-gray-400 ml-auto">
+                            {formatTimestamp(entry.timestamp)}
+                          </span>
+                        </div>
+                        {entry.fields_updated && entry.fields_updated.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {entry.fields_updated.map((f) => (
+                              <span
+                                key={f}
+                                className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                              >
+                                {HISTORY_FIELD_LABELS[f] || f}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

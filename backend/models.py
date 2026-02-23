@@ -73,6 +73,7 @@ class JobData(BaseModel):
     salary_type: str = "monthly"  # monthly, yearly, hourly, negotiable
     salary_guaranteed_months: Optional[int] = None  # 保障年薪月數 (e.g., 14)
     location: Optional[str] = None
+    city: Optional[str] = None
     job_type: Optional[str] = None  # full-time, part-time, contract, intern
     workload: Optional[str] = None  # light, moderate, heavy
     description: Optional[str] = None  # 工作內容（條列）
@@ -108,6 +109,7 @@ class JobUpdate(BaseModel):
     salary_type: Optional[str] = None
     salary_guaranteed_months: Optional[int] = None
     location: Optional[str] = None
+    city: Optional[str] = None
     job_type: Optional[str] = None
     workload: Optional[str] = None
     description: Optional[str] = None
