@@ -13,6 +13,7 @@ from models import (
 )
 from llm_parser import parse_job_text, check_ollama_available, MODEL
 from extraction_schema import build_user_prompt, extraction_to_jobdata
+from company_normalizer import normalize as normalize_company, invalidate_embedding_cache
 
 app = FastAPI(title="FindYourJob API")
 
@@ -288,7 +289,12 @@ def calc_skill_match(job: JobData, conn) -> dict | None:
 # ── Company helpers ────────────────────────────────────
 
 def _find_or_create_company(conn, company_name: str, company_info: dict | None = None) -> int:
-    """Find an existing company by name, or create a new one.
+    """Find an existing company by name (with fuzzy/embedding matching), or create a new one.
+
+    Uses the 3-layer normalization pipeline:
+    1. Exact match on preprocessed name
+    2. rapidfuzz fuzzy match (if installed)
+    3. sentence-transformers embedding match (if installed)
 
     company_info may contain: contact_name, contact_title, contact_phone,
     contact_email, address, website, plus benefits/benefits_structured
@@ -296,18 +302,22 @@ def _find_or_create_company(conn, company_name: str, company_info: dict | None =
 
     Returns the company ID.
     """
-    row = conn.execute(
-        "SELECT id FROM companies WHERE name = ?", (company_name,)
-    ).fetchone()
+    result = normalize_company(company_name, conn)
 
-    if row:
-        company_id = row["id"]
-        # Fill in any NULL fields on the existing company with new info
+    if result.company_id is not None and not result.needs_review:
+        # Confident match → use existing company
         if company_info:
-            _fill_company_nulls(conn, company_id, company_info)
-        return company_id
+            _fill_company_nulls(conn, result.company_id, company_info)
+        return result.company_id
 
-    # Create new company
+    if result.company_id is not None and result.needs_review:
+        # Matched but needs review — still link to the candidate for now,
+        # but the needs_review flag will surface in the API response
+        if company_info:
+            _fill_company_nulls(conn, result.company_id, company_info)
+        return result.company_id
+
+    # No match → create new company
     info = company_info or {}
     cursor = conn.execute(
         f"INSERT INTO companies ({COMPANY_COLUMNS}) VALUES ({','.join('?' * 10)})",
@@ -409,6 +419,8 @@ def update_company(company_id: int, update: CompanyUpdate):
                 "UPDATE jobs SET company = ? WHERE company_id = ?",
                 (updates["name"], company_id),
             )
+            # Invalidate embedding cache for old name
+            invalidate_embedding_cache(row["name"])
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [company_id]
@@ -435,6 +447,7 @@ def delete_company(company_id: int):
             (company_id,),
         )
         conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+        invalidate_embedding_cache(row["name"])
         return {"message": "已刪除公司（相關職缺已取消關聯）"}
 
 
@@ -463,6 +476,34 @@ def list_company_jobs(company_id: int):
                 job.skill_match = json.dumps(match, ensure_ascii=False)
             jobs.append(job)
         return jobs
+
+
+# ── Company name normalization ─────────────────────────
+
+class CompanyNormalizeRequest(PydanticBaseModel):
+    name: str
+
+
+@app.post("/api/companies/normalize")
+def normalize_company_name(req: CompanyNormalizeRequest):
+    """Preview company name normalization result.
+
+    Returns the 3-layer pipeline result so the frontend can:
+    - Show the matched canonical name
+    - Display confidence and method
+    - Let the user confirm or override when needs_review=True
+    """
+    with get_db() as conn:
+        result = normalize_company(req.name, conn)
+        return {
+            "canonical_name": result.canonical_name,
+            "company_id": result.company_id,
+            "confidence": round(result.confidence, 3),
+            "method": result.method,
+            "needs_review": result.needs_review,
+            "preprocessed": result.preprocessed,
+            "candidates": result.candidates,
+        }
 
 
 # ── Jobs CRUD ───────────────────────────────────────────
@@ -716,10 +757,16 @@ def update_job(job_id: int, update: JobUpdate):
         if not row:
             raise HTTPException(status_code=404, detail="找不到此職缺")
 
-        # If company name changed, update company linkage
+        # If company name changed, use normalizer for smart matching
         if "company" in updates and updates["company"] != row["company"]:
-            new_company_id = _find_or_create_company(conn, updates["company"])
-            updates["company_id"] = new_company_id
+            norm_result = normalize_company(updates["company"], conn)
+            if norm_result.company_id is not None:
+                updates["company_id"] = norm_result.company_id
+                # Use the canonical name for consistency
+                updates["company"] = norm_result.canonical_name
+            else:
+                new_company_id = _find_or_create_company(conn, updates["company"])
+                updates["company_id"] = new_company_id
 
         # Update field metadata — mark updated fields as source="user"
         existing_meta = json.loads(row["field_metadata"] or "{}")
