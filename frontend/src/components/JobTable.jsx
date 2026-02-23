@@ -3,11 +3,10 @@ import JobEditModal from './JobEditModal';
 
 const SORT_OPTIONS = [
   { key: 'created_at', label: '加入時間', icon: '⏱' },
-  { key: 'salary_max', label: '薪資高低', icon: '$' },
-  { key: 'priority', label: '優先順序', icon: '!' },
-  { key: 'company', label: '公司名稱', icon: 'A' },
-  { key: 'location', label: '工作地點', icon: '⌂' },
-  { key: 'workload', label: '工作量', icon: '◷' },
+  { key: 'salary_max', label: '薪資', icon: '$' },
+  { key: 'status', label: '投遞狀態', icon: '📋' },
+  { key: 'priority', label: '優先順序', icon: '★' },
+  { key: 'skill_match', label: '匹配度', icon: '⚡' },
 ];
 
 const SALARY_TYPE_LABELS = {
@@ -50,6 +49,14 @@ const PRIORITY_LABELS = {
   3: { text: '中', color: 'bg-yellow-400 text-gray-800' },
   4: { text: '低', color: 'bg-blue-200 text-blue-800' },
   5: { text: '最低', color: 'bg-gray-200 text-gray-600' },
+};
+
+const STATUS_LABELS = {
+  not_applied:  { text: '未投遞',       color: 'bg-red-100 text-red-700 border-red-300' },
+  applied:      { text: '已投遞',       color: 'bg-blue-100 text-blue-700 border-blue-300' },
+  interviewing: { text: '面試中',       color: 'bg-orange-100 text-orange-700 border-orange-300' },
+  offered:      { text: '已取得 Offer', color: 'bg-green-100 text-green-700 border-green-300' },
+  rejected:     { text: '未錄取',       color: 'bg-gray-100 text-gray-400 border-gray-300' },
 };
 
 function formatSalary(min, max, type, guaranteedMonths) {
@@ -197,7 +204,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
     if (sortBy === key) {
       onSortChange(key, order === 'asc' ? 'desc' : 'asc');
     } else {
-      const defaultOrder = key === 'salary_max' ? 'desc' : key === 'priority' ? 'asc' : 'desc';
+      const defaultOrder = (key === 'priority' || key === 'status') ? 'asc' : 'desc';
       onSortChange(key, defaultOrder);
     }
   }
@@ -255,7 +262,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 ${hasMismatch
                   ? 'border-2 border-red-300'
                   : 'border border-gray-200'
-                }`}
+                }${job.status === 'rejected' ? ' opacity-50' : ''}`}
             >
               {/* Mismatch banner */}
               {hasMismatch && (
@@ -301,6 +308,14 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         {REMOTE_LABELS[job.remote_type] || job.remote_type}
                       </span>
                     )}
+                    {(() => {
+                      const st = STATUS_LABELS[job.status] || STATUS_LABELS.not_applied;
+                      return (
+                        <span className={`text-xs px-2 py-0.5 rounded border font-medium ${st.color}`}>
+                          {st.text}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-sm text-gray-500 truncate">
                     {job.company_data ? (
@@ -454,6 +469,15 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         )}
                       </div>
                     )}
+                    {job.description && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400">工作內容：</span>
+                        <SourceBadge fieldKey="description" fieldMeta={fieldMeta} />
+                        <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
+                          {job.description}
+                        </div>
+                      </div>
+                    )}
                     {job.salary_guaranteed_months && (
                       <div>
                         <span className="text-gray-400">保障年薪：</span>
@@ -495,24 +519,34 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                                 </span>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {categories.map(([cat, { items, companyItems, jobItems }]) => {
-                                const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
-                                return items.map((item) => {
-                                  const isExtra = jobItems.includes(item) && !companyItems.includes(item);
+                            <div className="space-y-1">
+                              {categories
+                                .filter(([, { items }]) => items.length > 0)
+                                .map(([cat, { items, companyItems, jobItems }]) => {
+                                  const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
                                   return (
-                                    <span
-                                      key={`${cat}-${item}`}
-                                      className={`text-xs px-2 py-0.5 rounded border ${meta.color}
-                                        ${isExtra ? 'ring-1 ring-teal-300' : ''}`}
-                                      title={isExtra ? `${meta.label}（職缺額外）` : meta.label}
-                                    >
-                                      {item}
-                                      {isExtra && <span className="text-[9px] ml-0.5 text-teal-500">+</span>}
-                                    </span>
+                                    <div key={cat} className="flex items-start gap-1.5">
+                                      <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${meta.color}`}>
+                                        {meta.label}
+                                      </span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {items.map((item) => {
+                                          const isExtra = jobItems.includes(item) && !companyItems.includes(item);
+                                          return (
+                                            <span
+                                              key={`${cat}-${item}`}
+                                              className={`text-xs px-2 py-0.5 rounded border ${meta.color}
+                                                ${isExtra ? 'ring-1 ring-teal-300' : ''}`}
+                                            >
+                                              {item}
+                                              {isExtra && <span className="text-[9px] ml-0.5 text-teal-500">+</span>}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
                                   );
-                                });
-                              })}
+                                })}
                             </div>
                           </div>
                         );

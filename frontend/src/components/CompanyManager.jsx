@@ -414,20 +414,28 @@ export default function CompanyManager({ onNavigateToJob }) {
                       {bs && (
                         <div className="mb-4">
                           <h4 className="text-xs font-medium text-gray-500 mb-2">福利制度</h4>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="space-y-1">
                             {Object.entries(bs)
                               .filter(([, items]) => items.length > 0)
                               .map(([cat, items]) => {
                                 const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
-                                return items.map((item) => (
-                                  <span
-                                    key={`${cat}-${item}`}
-                                    className={`text-xs px-2 py-0.5 rounded border ${meta.color}`}
-                                    title={meta.label}
-                                  >
-                                    {item}
-                                  </span>
-                                ));
+                                return (
+                                  <div key={cat} className="flex items-start gap-1.5">
+                                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${meta.color}`}>
+                                      {meta.label}
+                                    </span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {items.map((item) => (
+                                        <span
+                                          key={`${cat}-${item}`}
+                                          className={`text-xs px-2 py-0.5 rounded border ${meta.color}`}
+                                        >
+                                          {item}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
                               })}
                           </div>
                         </div>
@@ -696,9 +704,9 @@ export default function CompanyManager({ onNavigateToJob }) {
                                       className="mt-0.5 rounded text-green-600 focus:ring-green-500"
                                     />
                                     <span className="text-sm text-gray-600 w-24 shrink-0">{f.label}</span>
-                                    <span className="text-sm font-medium text-green-700 break-all whitespace-pre-wrap">
-                                      {displayFieldValue(f.new_value)}
-                                    </span>
+                                    <div className="text-sm font-medium text-green-700 min-w-0 flex-1">
+                                      <FriendlyValue field={f.field} value={f.new_value} />
+                                    </div>
                                   </label>
                                 ))}
                               </div>
@@ -754,8 +762,8 @@ export default function CompanyManager({ onNavigateToJob }) {
                                           />
                                           <div className="min-w-0">
                                             <div className="text-[10px] text-gray-400 mb-0.5">目前值</div>
-                                            <div className="text-sm text-gray-700 break-all whitespace-pre-wrap">
-                                              {displayFieldValue(c.old_value)}
+                                            <div className="text-sm text-gray-700">
+                                              <FriendlyValue field={c.field} value={c.old_value} />
                                             </div>
                                           </div>
                                         </label>
@@ -781,8 +789,8 @@ export default function CompanyManager({ onNavigateToJob }) {
                                           />
                                           <div className="min-w-0">
                                             <div className="text-[10px] text-green-600 mb-0.5">新值</div>
-                                            <div className="text-sm text-green-700 break-all whitespace-pre-wrap">
-                                              {displayFieldValue(c.new_value)}
+                                            <div className="text-sm text-green-700">
+                                              <FriendlyValue field={c.field} value={c.new_value} />
                                             </div>
                                           </div>
                                         </label>
@@ -1084,10 +1092,76 @@ function CompanyInputWidget({ field, value, onChange, placeholder }) {
 }
 
 
-/** Format a field value for display (truncate if too long) */
+/** Truncate plain text for display */
 function displayFieldValue(val) {
   if (val == null) return '-';
   const s = String(val);
   if (s.length > 200) return s.slice(0, 200) + '...';
   return s;
+}
+
+
+/**
+ * Render a field value in a user-friendly way (no raw JSON).
+ * - benefits_structured → category-tagged pills
+ * - interview_questions → numbered list
+ * - everything else     → plain text
+ */
+function FriendlyValue({ field, value, className = '' }) {
+  if (value == null) return <span className={className}>-</span>;
+
+  // benefits_structured: JSON string → tag pills grouped by category
+  if (field === 'benefits_structured') {
+    const parsed = typeof value === 'string' ? parseBenefitsStructured(value) : value;
+    if (parsed && typeof parsed === 'object') {
+      const entries = Object.entries(parsed).filter(
+        ([, items]) => Array.isArray(items) && items.length > 0
+      );
+      if (entries.length > 0) {
+        return (
+          <div className="space-y-1">
+            {entries.map(([cat, items]) => {
+              const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
+              return (
+                <div key={cat} className="flex items-start gap-1.5">
+                  <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${meta.color}`}>
+                    {meta.label}
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {items.map((item) => (
+                      <span
+                        key={`${cat}-${item}`}
+                        className={`text-xs px-1.5 py-0.5 rounded border ${meta.color}`}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      }
+    }
+    return <span className={className}>-</span>;
+  }
+
+  // interview_questions: JSON string → numbered list
+  if (field === 'interview_questions') {
+    const parsed = typeof value === 'string' ? parseInterviewQuestions(value) : value;
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return (
+        <ol className="list-decimal list-inside space-y-0.5">
+          {parsed.map((q, i) => (
+            <li key={i} className={`text-sm ${className}`}>{q}</li>
+          ))}
+        </ol>
+      );
+    }
+    return <span className={className}>-</span>;
+  }
+
+  // Plain text fields
+  return <span className={`${className} whitespace-pre-wrap break-all`}>{displayFieldValue(value)}</span>;
 }

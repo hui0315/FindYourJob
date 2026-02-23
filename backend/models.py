@@ -75,6 +75,7 @@ class JobData(BaseModel):
     location: Optional[str] = None
     job_type: Optional[str] = None  # full-time, part-time, contract, intern
     workload: Optional[str] = None  # light, moderate, heavy
+    description: Optional[str] = None  # 工作內容（條列）
     skills: Optional[str] = None
     experience_years: Optional[int] = None
     education: Optional[str] = None  # high_school, bachelor, master, phd, none
@@ -86,6 +87,7 @@ class JobData(BaseModel):
     language: Optional[str] = None  # 語文條件
     source_url: Optional[str] = None
     notes: Optional[str] = None
+    status: str = "not_applied"  # not_applied, applied, interviewing, offered, rejected
     priority: int = 3  # 1-5, 1=highest
     mismatches: Optional[str] = None  # JSON string of mismatch reasons
     skill_match: Optional[str] = None  # JSON: {score, known, learning, missing, total}
@@ -108,6 +110,7 @@ class JobUpdate(BaseModel):
     location: Optional[str] = None
     job_type: Optional[str] = None
     workload: Optional[str] = None
+    description: Optional[str] = None
     skills: Optional[str] = None
     experience_years: Optional[int] = None
     education: Optional[str] = None
@@ -119,6 +122,7 @@ class JobUpdate(BaseModel):
     language: Optional[str] = None
     source_url: Optional[str] = None
     notes: Optional[str] = None
+    status: Optional[str] = None
     priority: Optional[int] = None
 
 

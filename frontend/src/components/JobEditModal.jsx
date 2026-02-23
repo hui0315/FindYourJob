@@ -43,7 +43,16 @@ const PRIORITY_OPTIONS = [
   { value: 5, label: '5 - 最低' },
 ];
 
+const STATUS_OPTIONS = [
+  { value: 'not_applied', label: '未投遞' },
+  { value: 'applied', label: '已投遞' },
+  { value: 'interviewing', label: '面試中' },
+  { value: 'offered', label: '已取得 Offer' },
+  { value: 'rejected', label: '未錄取' },
+];
+
 const EDITABLE_FIELDS = [
+  { key: 'status', label: '投遞狀態', type: 'select', options: STATUS_OPTIONS },
   { key: 'title', label: '職位名稱', type: 'text' },
   { key: 'company', label: '公司名稱', type: 'text' },
   { key: 'salary_min', label: '最低薪資', type: 'number' },
@@ -53,6 +62,7 @@ const EDITABLE_FIELDS = [
   { key: 'location', label: '工作地點', type: 'text' },
   { key: 'job_type', label: '工作類型', type: 'select', options: JOB_TYPE_OPTIONS },
   { key: 'workload', label: '工作量', type: 'select', options: WORKLOAD_OPTIONS },
+  { key: 'description', label: '工作內容', type: 'textarea', rows: 4 },
   { key: 'skills', label: '技能需求', type: 'text' },
   { key: 'experience_years', label: '經驗年數', type: 'number' },
   { key: 'education', label: '學歷要求', type: 'select', options: EDUCATION_OPTIONS },
@@ -69,7 +79,7 @@ const EDITABLE_FIELDS = [
 // Lookup maps for displaying enum values in Chinese
 const ENUM_DISPLAY = Object.fromEntries(
   [SALARY_TYPE_OPTIONS, JOB_TYPE_OPTIONS, WORKLOAD_OPTIONS,
-   EDUCATION_OPTIONS, REMOTE_OPTIONS, PRIORITY_OPTIONS]
+   EDUCATION_OPTIONS, REMOTE_OPTIONS, PRIORITY_OPTIONS, STATUS_OPTIONS]
     .flat()
     .map((o) => [String(o.value), o.label])
 );
@@ -848,7 +858,7 @@ function EditFieldInput({ field, currentValue, editValue, onChange, isDirty, met
 }
 
 
-/** Shared input widget for text/number/select fields */
+/** Shared input widget for text/number/select/textarea fields */
 function InputWidget({ field, value, onChange, placeholder }) {
   if (field.type === 'select') {
     return (
@@ -863,6 +873,18 @@ function InputWidget({ field, value, onChange, placeholder }) {
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
+    );
+  }
+  if (field.type === 'textarea') {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                   focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+        rows={field.rows || 3}
+        placeholder={placeholder}
+      />
     );
   }
   return (

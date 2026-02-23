@@ -46,9 +46,9 @@ def normalize_salary_to_monthly(amount: int | None, salary_type: str) -> int | N
 
 JOB_COLUMNS = (
     "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
-    "location, job_type, workload, skills, experience_years, "
+    "location, job_type, workload, description, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
-    "language, source_url, notes, priority, mismatches, raw_text, "
+    "language, source_url, notes, status, priority, mismatches, raw_text, "
     "field_metadata, edit_history"
 )
 
@@ -56,10 +56,11 @@ UPDATABLE_COLUMNS = {
     "title", "company", "company_id",
     "salary_min", "salary_max", "salary_type",
     "salary_guaranteed_months",
-    "location", "job_type", "workload", "skills", "experience_years",
+    "location", "job_type", "workload", "description",
+    "skills", "experience_years",
     "education", "remote_type", "work_hours", "leave_policy",
     "benefits", "benefits_structured", "language",
-    "source_url", "notes", "priority",
+    "source_url", "notes", "status", "priority",
 }
 
 COMPANY_COLUMNS = (
@@ -729,9 +730,9 @@ def _clean_json_text(text: str) -> str:
 _TRACKABLE_FIELDS = {
     "title", "company", "salary_min", "salary_max", "salary_type",
     "salary_guaranteed_months", "location", "job_type", "workload",
-    "skills", "experience_years", "education", "remote_type",
+    "description", "skills", "experience_years", "education", "remote_type",
     "work_hours", "leave_policy", "benefits", "benefits_structured",
-    "language", "source_url", "notes", "priority",
+    "language", "source_url", "notes", "status", "priority",
 }
 
 
@@ -823,16 +824,17 @@ def _save_jobs_to_db(
             job.edit_history = json.dumps([history_entry], ensure_ascii=False)
 
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 26)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 28)})",
                 (
                     job.title, job.company, job.company_id,
                     job.salary_min, job.salary_max,
                     job.salary_type, job.salary_guaranteed_months,
                     job.location, job.job_type, job.workload,
-                    job.skills, job.experience_years, job.education,
+                    job.description, job.skills, job.experience_years, job.education,
                     job.remote_type, job.work_hours, job.leave_policy,
                     job.benefits, job.benefits_structured,
-                    job.language, job.source_url, job.notes, job.priority,
+                    job.language, job.source_url, job.notes,
+                    job.status, job.priority,
                     job.mismatches, job.raw_text,
                     job.field_metadata, job.edit_history,
                 ),
@@ -914,18 +916,50 @@ def _load_job_with_company(row, conn) -> JobData:
 def list_jobs(sort_by: str = "created_at", order: str = "desc"):
     allowed_sort = {
         "created_at", "title", "company", "salary_min", "salary_max",
-        "location", "workload", "priority", "experience_years", "education",
+        "priority", "experience_years", "education",
     }
-    if sort_by not in allowed_sort:
-        sort_by = "created_at"
     if order not in ("asc", "desc"):
         order = "desc"
 
+    # skill_match and status use custom ordering, so sort in Python
+    python_sort = sort_by in ("skill_match", "status")
+    if python_sort:
+        db_sort = "created_at"
+    elif sort_by not in allowed_sort:
+        sort_by = "created_at"
+        db_sort = sort_by
+    else:
+        db_sort = sort_by
+
     with get_db() as conn:
         rows = conn.execute(
-            f"SELECT * FROM jobs ORDER BY {sort_by} {order}"
+            f"SELECT * FROM jobs ORDER BY {db_sort} {order}"
         ).fetchall()
-        return [_load_job_with_company(row, conn) for row in rows]
+        jobs = [_load_job_with_company(row, conn) for row in rows]
+
+        if sort_by == "skill_match":
+            reverse = order == "desc"
+            def _match_score(job: JobData) -> int:
+                if not job.skill_match:
+                    return -1
+                try:
+                    return json.loads(job.skill_match).get("score", 0)
+                except (json.JSONDecodeError, TypeError):
+                    return -1
+            jobs.sort(key=_match_score, reverse=reverse)
+        elif sort_by == "status":
+            # Order by urgency: not_applied > interviewing > applied > offered > rejected
+            _STATUS_ORDER = {
+                "not_applied": 0, "interviewing": 1, "applied": 2,
+                "offered": 3, "rejected": 4,
+            }
+            reverse = order == "desc"
+            jobs.sort(
+                key=lambda j: _STATUS_ORDER.get(j.status or "not_applied", 9),
+                reverse=reverse,
+            )
+
+        return jobs
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobData)
@@ -1010,12 +1044,13 @@ _FIELD_LABELS = {
     "salary_min": "最低薪資", "salary_max": "最高薪資",
     "salary_type": "薪資類型", "salary_guaranteed_months": "保障月數",
     "location": "工作地點", "job_type": "工作類型", "workload": "工作量",
+    "description": "工作內容",
     "skills": "技能需求", "experience_years": "經驗年數",
     "education": "學歷要求", "remote_type": "遠端類型",
     "work_hours": "上班時間", "leave_policy": "休假制度",
     "benefits": "福利", "benefits_structured": "結構化福利",
     "language": "語文條件", "source_url": "來源連結",
-    "notes": "備註", "priority": "優先順序",
+    "notes": "備註", "status": "投遞狀態", "priority": "優先順序",
 }
 
 
