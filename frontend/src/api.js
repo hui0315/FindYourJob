@@ -165,3 +165,38 @@ export async function fetchCompanyJobs(companyId) {
   if (!res.ok) throw new Error('載入公司職缺失敗');
   return res.json();
 }
+
+export async function fetchCompanyPromptTemplate() {
+  const res = await fetch(`${BASE}/companies/prompt-template`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.prompt;
+}
+
+export async function previewSupplementCompany(id, { rawText = '', jsonText = '', method = 'import' }) {
+  const res = await fetch(`${BASE}/companies/${id}/supplement/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw_text: rawText, json_text: jsonText, method }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || '預覽失敗');
+  }
+  return res.json();
+}
+
+export async function supplementCompany(id, { rawText = '', jsonText = '', method = 'import', selectedFields = null }) {
+  const body = { raw_text: rawText, json_text: jsonText, method };
+  if (selectedFields) body.selected_fields = selectedFields;
+  const res = await fetch(`${BASE}/companies/${id}/supplement`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || '補充失敗');
+  }
+  return res.json();
+}

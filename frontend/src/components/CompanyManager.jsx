@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { fetchCompanies, updateCompany, deleteCompany } from '../api';
+import {
+  fetchCompanies, updateCompany, deleteCompany,
+  fetchCompanyPromptTemplate, previewSupplementCompany, supplementCompany,
+} from '../api';
 
 const BENEFIT_CATEGORY_LABELS = {
   bonus: { label: '獎金', color: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -15,6 +18,28 @@ function parseBenefitsStructured(str) {
   try { return JSON.parse(str); } catch { return null; }
 }
 
+function parseInterviewQuestions(str) {
+  if (!str) return null;
+  try {
+    const parsed = JSON.parse(str);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch { return null; }
+}
+
+function parseEditHistory(company) {
+  if (!company.edit_history) return [];
+  try { return JSON.parse(company.edit_history); } catch { return []; }
+}
+
+function formatTimestamp(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch { return isoStr; }
+}
+
 const CONTACT_FIELDS = [
   { key: 'contact_name', label: '聯絡人' },
   { key: 'contact_title', label: '職稱' },
@@ -23,6 +48,39 @@ const CONTACT_FIELDS = [
   { key: 'address', label: '公司地址' },
   { key: 'website', label: '公司網站' },
 ];
+
+const EXTRA_FIELDS = [
+  { key: 'industry', label: '產業別' },
+  { key: 'company_size', label: '公司規模' },
+  { key: 'culture', label: '工作文化' },
+];
+
+const EDITABLE_TEXT_FIELDS = [
+  { key: 'interview_process', label: '面試流程', rows: 2 },
+  { key: 'ai_notes', label: 'AI 備註', rows: 3 },
+  { key: 'notes', label: '備註', rows: 2 },
+];
+
+const SOURCE_LABELS = {
+  import: 'LLM 匯入',
+  user: '手動填寫',
+};
+
+const ACTION_LABELS = {
+  created: '建立',
+  supplement: '補充資料',
+  manual_edit: '手動編輯',
+};
+
+const COMPANY_FIELD_LABELS = {
+  name: '公司名稱', benefits: '福利', benefits_structured: '結構化福利',
+  contact_name: '聯絡人', contact_title: '聯絡人職稱',
+  contact_phone: '電話', contact_email: 'Email',
+  address: '公司地址', website: '公司網站', notes: '備註',
+  interview_process: '面試流程', interview_questions: '考古題',
+  ai_notes: 'AI 備註', industry: '產業別',
+  company_size: '公司規模', culture: '工作文化',
+};
 
 export default function CompanyManager({ onNavigateToJob }) {
   const [companies, setCompanies] = useState([]);
@@ -33,8 +91,23 @@ export default function CompanyManager({ onNavigateToJob }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // AI supplement state
+  const [supplementId, setSupplementId] = useState(null);
+  const [supplementStep, setSupplementStep] = useState('input'); // 'input' | 'online' | 'preview' | 'history'
+  const [rawText, setRawText] = useState('');
+  const [jsonText, setJsonText] = useState('');
+  const [promptTemplate, setPromptTemplate] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [supplementLoading, setSupplementLoading] = useState(false);
+  const [supplementError, setSupplementError] = useState('');
+  const [supplementSuccess, setSupplementSuccess] = useState('');
+  const [previewData, setPreviewData] = useState(null);
+  const [conflictChoices, setConflictChoices] = useState({});
+  const [newFieldChecked, setNewFieldChecked] = useState({});
+
   useEffect(() => {
     loadCompanies();
+    fetchCompanyPromptTemplate().then((p) => { if (p) setPromptTemplate(p); });
   }, []);
 
   async function loadCompanies() {
@@ -51,6 +124,7 @@ export default function CompanyManager({ onNavigateToJob }) {
 
   function startEditing(company) {
     setEditingId(company.id);
+    setSupplementId(null);
     setEditForm({
       name: company.name || '',
       contact_name: company.contact_name || '',
@@ -59,9 +133,25 @@ export default function CompanyManager({ onNavigateToJob }) {
       contact_email: company.contact_email || '',
       address: company.address || '',
       website: company.website || '',
+      industry: company.industry || '',
+      company_size: company.company_size || '',
+      culture: company.culture || '',
+      interview_process: company.interview_process || '',
+      ai_notes: company.ai_notes || '',
       notes: company.notes || '',
     });
     setError('');
+  }
+
+  function startSupplement(company) {
+    setSupplementId(company.id);
+    setEditingId(null);
+    setSupplementStep('input');
+    setRawText('');
+    setJsonText('');
+    setPreviewData(null);
+    setSupplementError('');
+    setSupplementSuccess('');
   }
 
   async function handleSave(companyId) {
@@ -100,6 +190,104 @@ export default function CompanyManager({ onNavigateToJob }) {
       setCompanies((prev) => prev.filter((c) => c.id !== companyId));
     } catch {
       setError('刪除失敗');
+    }
+  }
+
+  // ── AI Supplement handlers ──
+
+  const combinedPrompt = promptTemplate ? promptTemplate + '\n' + rawText : rawText;
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(combinedPrompt);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = combinedPrompt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  function handleGoOnline() {
+    if (!rawText.trim()) { setSupplementError('請先輸入公司相關資訊'); return; }
+    setSupplementError('');
+    setJsonText('');
+    setCopied(false);
+    setSupplementStep('online');
+  }
+
+  async function handleImportPreview() {
+    if (!jsonText.trim()) { setSupplementError('請貼上 LLM 回覆的 JSON'); return; }
+    setSupplementError('');
+    setSupplementSuccess('');
+    setSupplementLoading(true);
+    try {
+      const result = await previewSupplementCompany(supplementId, {
+        rawText,
+        jsonText,
+        method: 'import',
+      });
+      setPreviewData(result);
+      const nc = {};
+      for (const f of result.new_fields) nc[f.field] = true;
+      setNewFieldChecked(nc);
+      setConflictChoices({});
+      setSupplementStep('preview');
+    } catch (e) {
+      setSupplementError(e.message);
+    } finally {
+      setSupplementLoading(false);
+    }
+  }
+
+  async function handleConfirmMerge() {
+    if (!previewData) return;
+    const unresolvedCount = previewData.conflicts.filter(
+      (c) => !conflictChoices[c.field]
+    ).length;
+    if (unresolvedCount > 0) {
+      setSupplementError(`還有 ${unresolvedCount} 個衝突欄位尚未選擇`);
+      return;
+    }
+    const selectedFields = [];
+    for (const f of previewData.new_fields) {
+      if (newFieldChecked[f.field]) selectedFields.push(f.field);
+    }
+    for (const c of previewData.conflicts) {
+      if (conflictChoices[c.field] === 'new') selectedFields.push(c.field);
+    }
+    if (selectedFields.length === 0) {
+      setSupplementError('沒有選擇任何欄位');
+      return;
+    }
+    setSupplementError('');
+    setSupplementLoading(true);
+    try {
+      const updated = await supplementCompany(supplementId, {
+        rawText,
+        jsonText,
+        method: 'import',
+        selectedFields,
+      });
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === supplementId ? updated : c))
+      );
+      setSupplementSuccess('合併成功');
+      setRawText('');
+      setJsonText('');
+      setPreviewData(null);
+      setSupplementStep('input');
+      setTimeout(() => { setSupplementId(null); setSupplementSuccess(''); }, 1500);
+    } catch (e) {
+      setSupplementError(e.message);
+    } finally {
+      setSupplementLoading(false);
     }
   }
 
@@ -142,8 +330,14 @@ export default function CompanyManager({ onNavigateToJob }) {
         {companies.map((company) => {
           const expanded = expandedId === company.id;
           const editing = editingId === company.id;
+          const supplementing = supplementId === company.id;
           const bs = parseBenefitsStructured(company.benefits_structured);
           const hasContact = CONTACT_FIELDS.some((f) => company[f.key]);
+          const iq = parseInterviewQuestions(company.interview_questions);
+          const editHistory = parseEditHistory(company);
+          const unresolvedConflicts = previewData
+            ? previewData.conflicts.filter((c) => !conflictChoices[c.field]).length
+            : 0;
 
           return (
             <div
@@ -156,6 +350,7 @@ export default function CompanyManager({ onNavigateToJob }) {
                 onClick={() => {
                   setExpandedId(expanded ? null : company.id);
                   if (editing && !expanded) setEditingId(null);
+                  if (supplementing && !expanded) setSupplementId(null);
                 }}
               >
                 <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center
@@ -166,8 +361,10 @@ export default function CompanyManager({ onNavigateToJob }) {
                   <h3 className="font-semibold text-gray-800 truncate">{company.name}</h3>
                   <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
                     <span>{company.job_count ?? 0} 筆職缺</span>
+                    {company.industry && <span>{company.industry}</span>}
                     {hasContact && <span>有聯絡資訊</span>}
                     {bs && <span>有福利資料</span>}
+                    {company.interview_process && <span>有面試流程</span>}
                   </div>
                 </div>
                 <span className="shrink-0 text-gray-400 text-sm">
@@ -178,9 +375,23 @@ export default function CompanyManager({ onNavigateToJob }) {
               {/* Expanded detail */}
               {expanded && (
                 <div className="px-4 pb-4 pt-0 border-t border-gray-100">
-                  {!editing ? (
+                  {!editing && !supplementing ? (
                     /* ── View mode ── */
                     <div className="mt-3">
+                      {/* Company profile fields */}
+                      {(company.industry || company.company_size || company.culture) && (
+                        <div className="mb-4 grid grid-cols-3 gap-3">
+                          {EXTRA_FIELDS.map((f) =>
+                            company[f.key] ? (
+                              <div key={f.key} className="bg-gray-50 rounded-lg px-3 py-2">
+                                <div className="text-[10px] font-medium text-gray-400 mb-0.5">{f.label}</div>
+                                <div className="text-sm text-gray-700">{company[f.key]}</div>
+                              </div>
+                            ) : null
+                          )}
+                        </div>
+                      )}
+
                       {/* Benefits */}
                       {bs && (
                         <div className="mb-4">
@@ -207,6 +418,37 @@ export default function CompanyManager({ onNavigateToJob }) {
                         <div className="mb-4">
                           <h4 className="text-xs font-medium text-gray-500 mb-1">福利</h4>
                           <p className="text-sm text-gray-700">{company.benefits}</p>
+                        </div>
+                      )}
+
+                      {/* Interview process */}
+                      {company.interview_process && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-medium text-gray-500 mb-1">面試流程</h4>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{company.interview_process}</p>
+                        </div>
+                      )}
+
+                      {/* Interview questions */}
+                      {iq && iq.length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-medium text-gray-500 mb-2">考古題</h4>
+                          <ol className="list-decimal list-inside space-y-1">
+                            {iq.map((q, i) => (
+                              <li key={i} className="text-sm text-gray-700">{q}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      )}
+
+                      {/* AI notes */}
+                      {company.ai_notes && (
+                        <div className="mb-4">
+                          <h4 className="text-xs font-medium text-gray-500 mb-1">AI 備註</h4>
+                          <div className="text-sm text-gray-700 bg-blue-50 border border-blue-100
+                                          rounded-lg px-3 py-2 whitespace-pre-wrap">
+                            {company.ai_notes}
+                          </div>
                         </div>
                       )}
 
@@ -248,8 +490,13 @@ export default function CompanyManager({ onNavigateToJob }) {
                       {company.notes && (
                         <div className="mb-4">
                           <h4 className="text-xs font-medium text-gray-500 mb-1">備註</h4>
-                          <p className="text-sm text-gray-700">{company.notes}</p>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{company.notes}</p>
                         </div>
+                      )}
+
+                      {/* Edit history (inline, collapsible) */}
+                      {editHistory.length > 0 && (
+                        <HistorySection history={editHistory} />
                       )}
 
                       {/* Action buttons */}
@@ -262,6 +509,13 @@ export default function CompanyManager({ onNavigateToJob }) {
                           編輯
                         </button>
                         <button
+                          onClick={(e) => { e.stopPropagation(); startSupplement(company); }}
+                          className="px-3 py-1 text-sm text-indigo-600 border border-indigo-200
+                                     rounded hover:bg-indigo-50 transition-colors"
+                        >
+                          AI 整理
+                        </button>
+                        <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(company.id); }}
                           className="px-3 py-1 text-sm text-red-500 border border-red-200
                                      rounded hover:bg-red-50 transition-colors"
@@ -269,6 +523,287 @@ export default function CompanyManager({ onNavigateToJob }) {
                           刪除
                         </button>
                       </div>
+                    </div>
+                  ) : supplementing ? (
+                    /* ── AI Supplement mode ── */
+                    <div className="mt-3">
+                      {supplementError && (
+                        <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                          {supplementError}
+                        </div>
+                      )}
+                      {supplementSuccess && (
+                        <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-600">
+                          {supplementSuccess}
+                        </div>
+                      )}
+
+                      {/* Step: Input */}
+                      {supplementStep === 'input' && (
+                        <div>
+                          <p className="text-sm text-gray-500 mb-3">
+                            貼上從公司官網、面試心得、PTT、Glassdoor 等來源複製的公司資訊，
+                            AI 會整理成結構化資料（福利、面試流程、考古題、文化等）。
+                          </p>
+                          <textarea
+                            className="w-full h-40 p-3 border border-gray-300 rounded-lg
+                                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                       resize-y text-sm font-mono bg-white text-gray-800
+                                       placeholder:text-gray-400"
+                            placeholder="貼上公司相關資訊（福利制度、面試經驗、公司介紹等）..."
+                            value={rawText}
+                            onChange={(e) => setRawText(e.target.value)}
+                            maxLength={50000}
+                          />
+                          <div className="text-xs text-gray-400 text-right mt-1">
+                            {rawText.length.toLocaleString()} / 50,000
+                          </div>
+                          <div className="flex items-center gap-3 mt-3">
+                            <button
+                              onClick={handleGoOnline}
+                              disabled={supplementLoading}
+                              className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium
+                                         hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                         transition-colors"
+                            >
+                              複製 Prompt 給線上 LLM
+                            </button>
+                            <button
+                              onClick={() => setSupplementId(null)}
+                              className="text-sm text-gray-400 hover:text-gray-500 transition-colors"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step: Online LLM flow */}
+                      {supplementStep === 'online' && (
+                        <div>
+                          <button
+                            onClick={() => { setSupplementStep('input'); setSupplementError(''); }}
+                            className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                          >
+                            &larr; 返回修改
+                          </button>
+                          <div className="mb-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-medium text-gray-700">
+                                複製以下內容貼到 LLM
+                              </h3>
+                              <button
+                                onClick={handleCopy}
+                                className={`px-3 py-1 text-xs rounded border transition-colors ${
+                                  copied
+                                    ? 'bg-green-50 text-green-600 border-green-300'
+                                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                                }`}
+                              >
+                                {copied ? 'OK' : 'Copy'}
+                              </button>
+                            </div>
+                            <pre className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg
+                                            text-xs font-mono text-gray-600 whitespace-pre-wrap
+                                            overflow-y-auto max-h-32 leading-relaxed">
+                              {combinedPrompt}
+                            </pre>
+                          </div>
+                          <div className="mb-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-600">
+                            <ol className="list-decimal list-inside space-y-0.5">
+                              <li>複製上方內容</li>
+                              <li>貼到 ChatGPT / Gemini / Claude</li>
+                              <li>把 LLM 回覆的 JSON 貼到下方</li>
+                            </ol>
+                          </div>
+                          <textarea
+                            className="w-full h-32 p-3 border border-gray-300 rounded-lg
+                                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                       resize-y text-sm font-mono bg-white text-gray-800
+                                       placeholder:text-gray-400"
+                            placeholder="貼上 LLM 回覆的 JSON..."
+                            value={jsonText}
+                            onChange={(e) => setJsonText(e.target.value)}
+                          />
+                          <div className="flex gap-3 mt-3">
+                            <button
+                              onClick={handleImportPreview}
+                              disabled={supplementLoading}
+                              className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium
+                                         hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                         transition-colors"
+                            >
+                              {supplementLoading ? '解析中...' : '預覽解析結果'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step: Preview / Conflict Resolution */}
+                      {supplementStep === 'preview' && previewData && (
+                        <div>
+                          <button
+                            onClick={() => { setSupplementStep('online'); setSupplementError(''); setPreviewData(null); }}
+                            className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                          >
+                            &larr; 返回修改
+                          </button>
+
+                          <h3 className="text-sm font-medium text-gray-700 mb-3">
+                            解析結果預覽
+                          </h3>
+
+                          {/* New fields */}
+                          {previewData.new_fields.length > 0 && (
+                            <div className="mb-4">
+                              <h4 className="text-xs font-medium text-green-700 mb-2">
+                                新增欄位（補充空缺）
+                              </h4>
+                              <div className="space-y-2">
+                                {previewData.new_fields.map((f) => (
+                                  <label
+                                    key={f.field}
+                                    className="flex items-start gap-3 p-2.5 bg-green-50 border border-green-200
+                                               rounded-lg cursor-pointer hover:bg-green-100/60 transition-colors"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={newFieldChecked[f.field] ?? true}
+                                      onChange={(e) =>
+                                        setNewFieldChecked((prev) => ({
+                                          ...prev,
+                                          [f.field]: e.target.checked,
+                                        }))
+                                      }
+                                      className="mt-0.5 rounded text-green-600 focus:ring-green-500"
+                                    />
+                                    <span className="text-sm text-gray-600 w-24 shrink-0">{f.label}</span>
+                                    <span className="text-sm font-medium text-green-700 break-all whitespace-pre-wrap">
+                                      {displayFieldValue(f.new_value)}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Conflicts */}
+                          {previewData.conflicts.length > 0 && (
+                            <div className="mb-4">
+                              <h4 className="text-xs font-medium text-amber-700 mb-2">
+                                衝突欄位 — 請選擇要保留哪一個
+                                {unresolvedConflicts > 0 && (
+                                  <span className="ml-2 text-red-500">
+                                    ({unresolvedConflicts} 個待選擇)
+                                  </span>
+                                )}
+                              </h4>
+                              <div className="space-y-3">
+                                {previewData.conflicts.map((c) => {
+                                  const choice = conflictChoices[c.field];
+                                  return (
+                                    <div
+                                      key={c.field}
+                                      className={`p-3 rounded-lg border transition-colors ${
+                                        !choice
+                                          ? 'border-amber-300 bg-amber-50'
+                                          : 'border-gray-200 bg-gray-50'
+                                      }`}
+                                    >
+                                      <div className="text-sm font-medium text-gray-700 mb-2">
+                                        {c.label}
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <label
+                                          className={`flex items-start gap-2 p-2 rounded border cursor-pointer
+                                            transition-colors ${
+                                            choice === 'old'
+                                              ? 'border-blue-400 bg-blue-50'
+                                              : 'border-gray-200 bg-white hover:border-gray-300'
+                                          }`}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`conflict-${c.field}`}
+                                            checked={choice === 'old'}
+                                            onChange={() =>
+                                              setConflictChoices((prev) => ({
+                                                ...prev,
+                                                [c.field]: 'old',
+                                              }))
+                                            }
+                                            className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                                          />
+                                          <div className="min-w-0">
+                                            <div className="text-[10px] text-gray-400 mb-0.5">目前值</div>
+                                            <div className="text-sm text-gray-700 break-all whitespace-pre-wrap">
+                                              {displayFieldValue(c.old_value)}
+                                            </div>
+                                          </div>
+                                        </label>
+                                        <label
+                                          className={`flex items-start gap-2 p-2 rounded border cursor-pointer
+                                            transition-colors ${
+                                            choice === 'new'
+                                              ? 'border-green-400 bg-green-50'
+                                              : 'border-gray-200 bg-white hover:border-gray-300'
+                                          }`}
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`conflict-${c.field}`}
+                                            checked={choice === 'new'}
+                                            onChange={() =>
+                                              setConflictChoices((prev) => ({
+                                                ...prev,
+                                                [c.field]: 'new',
+                                              }))
+                                            }
+                                            className="mt-0.5 text-green-600 focus:ring-green-500"
+                                          />
+                                          <div className="min-w-0">
+                                            <div className="text-[10px] text-green-600 mb-0.5">新值</div>
+                                            <div className="text-sm text-green-700 break-all whitespace-pre-wrap">
+                                              {displayFieldValue(c.new_value)}
+                                            </div>
+                                          </div>
+                                        </label>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* No changes */}
+                          {previewData.conflicts.length === 0 && previewData.new_fields.length === 0 && (
+                            <p className="text-sm text-gray-400 text-center py-6">
+                              解析後沒有新的欄位變更
+                            </p>
+                          )}
+
+                          {/* Confirm button */}
+                          {(previewData.conflicts.length > 0 || previewData.new_fields.length > 0) && (
+                            <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+                              <button
+                                onClick={handleConfirmMerge}
+                                disabled={supplementLoading || unresolvedConflicts > 0}
+                                className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium
+                                           hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                           transition-colors"
+                              >
+                                {supplementLoading ? '合併中...' : '確認合併'}
+                              </button>
+                              {unresolvedConflicts > 0 && (
+                                <span className="text-xs text-amber-600 self-center">
+                                  請先選擇所有衝突欄位
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     /* ── Edit mode ── */
@@ -282,6 +817,22 @@ export default function CompanyManager({ onNavigateToJob }) {
                           className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
                                      focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-3">
+                        {EXTRA_FIELDS.map((f) => (
+                          <div key={f.key}>
+                            <label className="text-xs font-medium text-gray-500">{f.label}</label>
+                            <input
+                              type="text"
+                              value={editForm[f.key] || ''}
+                              onChange={(e) => setEditForm((p) => ({ ...p, [f.key]: e.target.value }))}
+                              className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder={`輸入${f.label}`}
+                            />
+                          </div>
+                        ))}
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
@@ -300,16 +851,18 @@ export default function CompanyManager({ onNavigateToJob }) {
                         ))}
                       </div>
 
-                      <div>
-                        <label className="text-xs font-medium text-gray-500">備註</label>
-                        <textarea
-                          value={editForm.notes || ''}
-                          onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
-                          className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                                     focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
-                          rows={2}
-                        />
-                      </div>
+                      {EDITABLE_TEXT_FIELDS.map((f) => (
+                        <div key={f.key}>
+                          <label className="text-xs font-medium text-gray-500">{f.label}</label>
+                          <textarea
+                            value={editForm[f.key] || ''}
+                            onChange={(e) => setEditForm((p) => ({ ...p, [f.key]: e.target.value }))}
+                            className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                                       focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+                            rows={f.rows}
+                          />
+                        </div>
+                      ))}
 
                       <div className="flex gap-2 pt-2">
                         <button
@@ -338,4 +891,67 @@ export default function CompanyManager({ onNavigateToJob }) {
       </div>
     </div>
   );
+}
+
+
+/** Collapsible edit history section */
+function HistorySection({ history }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mb-4">
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+        className="flex items-center gap-2 text-xs font-medium text-gray-400
+                   hover:text-gray-600 transition-colors"
+      >
+        <span>{open ? '▼' : '▶'}</span>
+        編輯紀錄 ({history.length})
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2">
+          {[...history].reverse().map((entry, i) => (
+            <div key={i} className="border border-gray-200 rounded-lg p-2.5">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`text-[10px] px-1.5 py-px rounded-full font-medium
+                  ${entry.source === 'user'
+                    ? 'bg-teal-100 text-teal-700'
+                    : 'bg-purple-100 text-purple-700'
+                  }`}>
+                  {SOURCE_LABELS[entry.source] || entry.source}
+                </span>
+                <span className="text-[10px] text-gray-500">
+                  {ACTION_LABELS[entry.action] || entry.action}
+                </span>
+                <span className="text-[10px] text-gray-400 ml-auto">
+                  {formatTimestamp(entry.timestamp)}
+                </span>
+              </div>
+              {entry.fields_updated && entry.fields_updated.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {entry.fields_updated.map((f) => (
+                    <span
+                      key={f}
+                      className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                    >
+                      {COMPANY_FIELD_LABELS[f] || f}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+/** Format a field value for display (truncate if too long) */
+function displayFieldValue(val) {
+  if (val == null) return '-';
+  const s = String(val);
+  if (s.length > 200) return s.slice(0, 200) + '...';
+  return s;
 }

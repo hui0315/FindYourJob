@@ -40,6 +40,15 @@ def init_db():
                 address TEXT,
                 website TEXT,
                 notes TEXT,
+                interview_process TEXT,
+                interview_questions TEXT,
+                ai_notes TEXT,
+                industry TEXT,
+                company_size TEXT,
+                culture TEXT,
+                raw_text TEXT,
+                field_metadata TEXT,
+                edit_history TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
@@ -94,6 +103,25 @@ def init_db():
         for col, col_type in migrations.items():
             if col not in existing:
                 conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {col_type}")
+
+        # Migrate existing databases: add new columns to companies if missing
+        existing_company_cols = {
+            row[1] for row in conn.execute("PRAGMA table_info(companies)").fetchall()
+        }
+        company_migrations = {
+            "interview_process": "TEXT",
+            "interview_questions": "TEXT",
+            "ai_notes": "TEXT",
+            "industry": "TEXT",
+            "company_size": "TEXT",
+            "culture": "TEXT",
+            "raw_text": "TEXT",
+            "field_metadata": "TEXT",
+            "edit_history": "TEXT",
+        }
+        for col, col_type in company_migrations.items():
+            if col not in existing_company_cols:
+                conn.execute(f"ALTER TABLE companies ADD COLUMN {col} {col_type}")
 
         # ── User profile & skills tables ────────────────────
         conn.execute("""
