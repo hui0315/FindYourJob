@@ -31,6 +31,11 @@ function parseEditHistory(company) {
   try { return JSON.parse(company.edit_history); } catch { return []; }
 }
 
+function parseFieldMetadata(company) {
+  if (!company.field_metadata) return {};
+  try { return JSON.parse(company.field_metadata); } catch { return {}; }
+}
+
 function formatTimestamp(isoStr) {
   if (!isoStr) return '';
   try {
@@ -55,10 +60,21 @@ const EXTRA_FIELDS = [
   { key: 'culture', label: '工作文化' },
 ];
 
-const EDITABLE_TEXT_FIELDS = [
-  { key: 'interview_process', label: '面試流程', rows: 2 },
-  { key: 'ai_notes', label: 'AI 備註', rows: 3 },
-  { key: 'notes', label: '備註', rows: 2 },
+// Unified field list for edit mode (drives the empty/filled split)
+const ALL_EDITABLE_FIELDS = [
+  { key: 'name', label: '公司名稱', type: 'text' },
+  { key: 'industry', label: '產業別', type: 'text' },
+  { key: 'company_size', label: '公司規模', type: 'text' },
+  { key: 'culture', label: '工作文化', type: 'text' },
+  { key: 'contact_name', label: '聯絡人', type: 'text' },
+  { key: 'contact_title', label: '聯絡人職稱', type: 'text' },
+  { key: 'contact_phone', label: '電話', type: 'text' },
+  { key: 'contact_email', label: 'Email', type: 'text' },
+  { key: 'address', label: '公司地址', type: 'text' },
+  { key: 'website', label: '公司網站', type: 'text' },
+  { key: 'interview_process', label: '面試流程', type: 'textarea', rows: 2 },
+  { key: 'ai_notes', label: 'AI 備註', type: 'textarea', rows: 3 },
+  { key: 'notes', label: '備註', type: 'textarea', rows: 2 },
 ];
 
 const SOURCE_LABELS = {
@@ -88,6 +104,8 @@ export default function CompanyManager({ onNavigateToJob }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [dirtyFields, setDirtyFields] = useState(new Set());
+  const [editSectionOpen, setEditSectionOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -125,22 +143,19 @@ export default function CompanyManager({ onNavigateToJob }) {
   function startEditing(company) {
     setEditingId(company.id);
     setSupplementId(null);
-    setEditForm({
-      name: company.name || '',
-      contact_name: company.contact_name || '',
-      contact_title: company.contact_title || '',
-      contact_phone: company.contact_phone || '',
-      contact_email: company.contact_email || '',
-      address: company.address || '',
-      website: company.website || '',
-      industry: company.industry || '',
-      company_size: company.company_size || '',
-      culture: company.culture || '',
-      interview_process: company.interview_process || '',
-      ai_notes: company.ai_notes || '',
-      notes: company.notes || '',
-    });
+    const data = {};
+    for (const field of ALL_EDITABLE_FIELDS) {
+      data[field.key] = company[field.key] ?? '';
+    }
+    setEditForm(data);
+    setDirtyFields(new Set());
+    setEditSectionOpen(false);
     setError('');
+  }
+
+  function handleFieldChange(key, value) {
+    setEditForm((prev) => ({ ...prev, [key]: value }));
+    setDirtyFields((prev) => new Set(prev).add(key));
   }
 
   function startSupplement(company) {
@@ -155,19 +170,21 @@ export default function CompanyManager({ onNavigateToJob }) {
   }
 
   async function handleSave(companyId) {
+    if (dirtyFields.size === 0) { setError('沒有修改任何欄位'); return; }
     setSaving(true);
     setError('');
     try {
       const payload = {};
       const company = companies.find((c) => c.id === companyId);
-      for (const [key, val] of Object.entries(editForm)) {
-        const original = company[key] ?? '';
-        if (val !== original) {
-          payload[key] = val || null;
-        }
+      for (const key of dirtyFields) {
+        let value = editForm[key];
+        if (value === '') value = null;
+        const original = company[key] ?? null;
+        if (value !== original) payload[key] = value;
       }
       if (Object.keys(payload).length === 0) {
-        setEditingId(null);
+        setError('沒有實際變更的欄位');
+        setSaving(false);
         return;
       }
       const updated = await updateCompany(companyId, payload);
@@ -175,6 +192,7 @@ export default function CompanyManager({ onNavigateToJob }) {
         prev.map((c) => (c.id === companyId ? updated : c))
       );
       setEditingId(null);
+      setDirtyFields(new Set());
     } catch (e) {
       setError(e.message);
     } finally {
@@ -806,82 +824,18 @@ export default function CompanyManager({ onNavigateToJob }) {
                       )}
                     </div>
                   ) : (
-                    /* ── Edit mode ── */
-                    <div className="mt-3 space-y-3">
-                      <div>
-                        <label className="text-xs font-medium text-gray-500">公司名稱</label>
-                        <input
-                          type="text"
-                          value={editForm.name}
-                          onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
-                          className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                                     focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3">
-                        {EXTRA_FIELDS.map((f) => (
-                          <div key={f.key}>
-                            <label className="text-xs font-medium text-gray-500">{f.label}</label>
-                            <input
-                              type="text"
-                              value={editForm[f.key] || ''}
-                              onChange={(e) => setEditForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                              className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder={`輸入${f.label}`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        {CONTACT_FIELDS.map((f) => (
-                          <div key={f.key}>
-                            <label className="text-xs font-medium text-gray-500">{f.label}</label>
-                            <input
-                              type="text"
-                              value={editForm[f.key] || ''}
-                              onChange={(e) => setEditForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                              className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder={`輸入${f.label}`}
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      {EDITABLE_TEXT_FIELDS.map((f) => (
-                        <div key={f.key}>
-                          <label className="text-xs font-medium text-gray-500">{f.label}</label>
-                          <textarea
-                            value={editForm[f.key] || ''}
-                            onChange={(e) => setEditForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                            className="w-full mt-1 px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                                       focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
-                            rows={f.rows}
-                          />
-                        </div>
-                      ))}
-
-                      <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => handleSave(company.id)}
-                          disabled={saving}
-                          className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded
-                                     hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                        >
-                          {saving ? '儲存中...' : '儲存'}
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="px-4 py-1.5 text-sm text-gray-500 border border-gray-300 rounded
-                                     hover:bg-gray-50 transition-colors"
-                        >
-                          取消
-                        </button>
-                      </div>
-                    </div>
+                    /* ── Edit mode (empty/filled split) ── */
+                    <CompanyEditPanel
+                      company={company}
+                      editForm={editForm}
+                      dirtyFields={dirtyFields}
+                      editSectionOpen={editSectionOpen}
+                      saving={saving}
+                      onFieldChange={handleFieldChange}
+                      onToggleEditSection={() => setEditSectionOpen(!editSectionOpen)}
+                      onSave={() => handleSave(company.id)}
+                      onCancel={() => { setEditingId(null); setDirtyFields(new Set()); }}
+                    />
                   )}
                 </div>
               )}
@@ -944,6 +898,188 @@ function HistorySection({ history }) {
         </div>
       )}
     </div>
+  );
+}
+
+
+/** Company edit panel — empty/filled split with provenance badges */
+function CompanyEditPanel({
+  company, editForm, dirtyFields, editSectionOpen, saving,
+  onFieldChange, onToggleEditSection, onSave, onCancel,
+}) {
+  const fieldMeta = parseFieldMetadata(company);
+
+  const emptyFields = ALL_EDITABLE_FIELDS.filter(
+    (f) => company[f.key] == null || company[f.key] === ''
+  );
+  const filledFields = ALL_EDITABLE_FIELDS.filter(
+    (f) => company[f.key] != null && company[f.key] !== ''
+  );
+
+  return (
+    <div className="mt-3">
+      {/* Section 1: Quick fill empty fields */}
+      {emptyFields.length > 0 && (
+        <div className="mb-5">
+          <h3 className="text-sm font-medium text-amber-700 mb-2">
+            快速填寫 ({emptyFields.length} 個空欄位)
+          </h3>
+          <div className="space-y-3">
+            {emptyFields.map((field) => (
+              <CompanyFieldInput
+                key={field.key}
+                field={field}
+                value={editForm[field.key]}
+                onChange={(v) => onFieldChange(field.key, v)}
+                isDirty={dirtyFields.has(field.key)}
+                meta={null}
+                isEmpty
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 2: Edit existing fields (collapsible) */}
+      {filledFields.length > 0 && (
+        <div>
+          <button
+            onClick={onToggleEditSection}
+            className="flex items-center gap-2 text-sm font-medium text-gray-500
+                       hover:text-gray-700 transition-colors mb-2 w-full"
+          >
+            <span className="text-xs">{editSectionOpen ? '▼' : '▶'}</span>
+            修正已有資料 ({filledFields.length} 個欄位)
+            <span className="text-xs text-gray-400 font-normal ml-1">
+              修正 LLM 整理錯誤
+            </span>
+          </button>
+          {editSectionOpen && (
+            <div className="space-y-3">
+              {filledFields.map((field) => (
+                <CompanyEditFieldInput
+                  key={field.key}
+                  field={field}
+                  currentValue={company[field.key]}
+                  editValue={editForm[field.key]}
+                  onChange={(v) => onFieldChange(field.key, v)}
+                  isDirty={dirtyFields.has(field.key)}
+                  meta={fieldMeta[field.key]}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Save button */}
+      <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
+        <button
+          onClick={onSave}
+          disabled={saving || dirtyFields.size === 0}
+          className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                     hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors"
+        >
+          {saving ? '儲存中...' : '儲存修改'}
+        </button>
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg
+                     hover:bg-gray-50 transition-colors"
+        >
+          取消
+        </button>
+        {dirtyFields.size > 0 && (
+          <span className="text-xs text-gray-400 self-center">
+            已修改 {dirtyFields.size} 個欄位
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+/** Input for empty fields — amber highlight, fill mode */
+function CompanyFieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
+  const displayVal = value ?? '';
+  return (
+    <div className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors
+                     ${isEmpty ? 'bg-amber-50/50 border border-amber-200' : 'bg-gray-50 border border-gray-200'}
+                     ${isDirty ? 'ring-2 ring-blue-300' : ''}`}>
+      <div className="w-28 shrink-0 pt-1.5">
+        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+        {meta && (
+          <div className="flex items-center gap-1 mt-0.5">
+            <span className={`text-[10px] px-1 py-px rounded
+              ${meta.source === 'user' ? 'bg-teal-100 text-teal-600' : 'bg-gray-200 text-gray-500'}`}>
+              {SOURCE_LABELS[meta.source] || meta.source}
+            </span>
+            <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
+          </div>
+        )}
+      </div>
+      <div className="flex-1">
+        <CompanyInputWidget field={field} value={displayVal} onChange={onChange} placeholder={isEmpty ? '待填寫' : ''} />
+      </div>
+    </div>
+  );
+}
+
+
+/** Input for existing fields — shows current value for comparison */
+function CompanyEditFieldInput({ field, currentValue, editValue, onChange, isDirty, meta }) {
+  const displayVal = editValue ?? '';
+  return (
+    <div className={`p-2.5 rounded-lg transition-colors bg-gray-50 border border-gray-200
+                     ${isDirty ? 'ring-2 ring-blue-300' : ''}`}>
+      <div className="flex items-center gap-2 mb-1.5">
+        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+        {meta && (
+          <>
+            <span className={`text-[10px] px-1 py-px rounded
+              ${meta.source === 'user' ? 'bg-teal-100 text-teal-600' : 'bg-purple-100 text-purple-600'}`}>
+              {SOURCE_LABELS[meta.source] || meta.source}
+            </span>
+            <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
+          </>
+        )}
+      </div>
+      {/* Current value display */}
+      <div className="mb-1.5 px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-500 break-all whitespace-pre-wrap">
+        目前：{displayFieldValue(currentValue)}
+      </div>
+      {/* Edit input */}
+      <CompanyInputWidget field={field} value={displayVal} onChange={onChange} placeholder="" />
+    </div>
+  );
+}
+
+
+/** Shared input widget for text/textarea fields */
+function CompanyInputWidget({ field, value, onChange, placeholder }) {
+  if (field.type === 'textarea') {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                   focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+        rows={field.rows || 2}
+        placeholder={placeholder}
+      />
+    );
+  }
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      placeholder={placeholder}
+    />
   );
 }
 
