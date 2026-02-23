@@ -412,6 +412,12 @@ def list_companies():
         return [_row_to_company(row, conn) for row in rows]
 
 
+@app.get("/api/companies/prompt-template")
+def get_company_prompt_template():
+    """Return the user-facing prompt for company data extraction."""
+    return {"prompt": build_company_user_prompt()}
+
+
 @app.get("/api/companies/{company_id}", response_model=CompanyData)
 def get_company(company_id: int):
     with get_db() as conn:
@@ -564,12 +570,6 @@ class CompanySupplementRequest(PydanticBaseModel):
     json_text: str = ""
     method: str = "import"  # "import" only (no local model for company-only text)
     selected_fields: list[str] | None = None
-
-
-@app.get("/api/companies/prompt-template")
-def get_company_prompt_template():
-    """Return the user-facing prompt for company data extraction."""
-    return {"prompt": build_company_user_prompt()}
 
 
 def _parse_company_supplement_input(req: CompanySupplementRequest) -> tuple[CompanyData, str]:
