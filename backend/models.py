@@ -28,6 +28,15 @@ class CompanyData(BaseModel):
     address: Optional[str] = None
     website: Optional[str] = None
     notes: Optional[str] = None
+    interview_process: Optional[str] = None  # 面試流程
+    interview_questions: Optional[str] = None  # 考古題 (JSON list)
+    ai_notes: Optional[str] = None  # AI 整理的備註/分析
+    industry: Optional[str] = None  # 產業別
+    company_size: Optional[str] = None  # 公司規模
+    culture: Optional[str] = None  # 工作文化
+    raw_text: Optional[str] = None
+    field_metadata: Optional[str] = None  # JSON: {field: {source, updated_at}}
+    edit_history: Optional[str] = None  # JSON: [{action, timestamp, source, fields_updated}]
     created_at: Optional[str] = None
     job_count: Optional[int] = None  # computed at read time
 
@@ -43,6 +52,12 @@ class CompanyUpdate(BaseModel):
     address: Optional[str] = None
     website: Optional[str] = None
     notes: Optional[str] = None
+    interview_process: Optional[str] = None
+    interview_questions: Optional[str] = None
+    ai_notes: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    culture: Optional[str] = None
 
 
 # ── Job models ─────────────────────────────────────────

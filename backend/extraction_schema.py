@@ -10,7 +10,7 @@ import json
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from models import JobData
+from models import JobData, CompanyData
 
 
 # ── Nested model for structured benefits ──────────────────
@@ -265,3 +265,137 @@ def extraction_to_jobdata(item: dict, raw_text: str) -> tuple[JobData, dict]:
 
     data["raw_text"] = raw_text
     return JobData(**data), company_info
+
+
+# ══════════════════════════════════════════════════════════
+# Company extraction — same "schema drives prompt" pattern
+# ══════════════════════════════════════════════════════════
+
+class CompanyExtraction(BaseModel):
+    """LLM extraction template for company info — each Field(description=...) drives the prompt."""
+
+    name: str = Field(description="公司名稱（必填）")
+    benefits: Optional[str] = Field(
+        None, description="福利摘要，逗號分隔"
+    )
+    benefits_structured: Optional[BenefitsStructured] = Field(
+        None, description="結構化福利，按六大類分類（只填明確提及的項目）"
+    )
+    contact_name: Optional[str] = Field(None, description="聯絡人姓名")
+    contact_title: Optional[str] = Field(
+        None, description="聯絡人職稱（如 HR、人資主管、招募負責人）"
+    )
+    contact_phone: Optional[str] = Field(None, description="聯絡電話")
+    contact_email: Optional[str] = Field(None, description="聯絡 Email")
+    address: Optional[str] = Field(
+        None, description="公司地址（總部或主要辦公室）"
+    )
+    website: Optional[str] = Field(None, description="公司官方網站")
+    industry: Optional[str] = Field(
+        None, description="產業別（如 半導體、金融、軟體、電商、生技）"
+    )
+    company_size: Optional[str] = Field(
+        None, description="公司規模（如 50人以下、50-200、200-1000、1000+、上市櫃）"
+    )
+    culture: Optional[str] = Field(
+        None, description="工作文化/氛圍（如 扁平化管理、新創步調快、外商風格、傳產穩定）"
+    )
+    interview_process: Optional[str] = Field(
+        None, description="面試流程（如「線上測驗 → 電話面試 → 主管面談 → HR 面談」）"
+    )
+    interview_questions: Optional[str] = Field(
+        None, description="面試考古題或常見問題，以 JSON 陣列格式列出，如 [\"請自我介紹\", \"系統設計題\"]"
+    )
+    ai_notes: Optional[str] = Field(
+        None, description="AI 整理的重點摘要：公司優勢、注意事項、整體評價等"
+    )
+    notes: Optional[str] = Field(
+        None, description="其他值得記錄的資訊"
+    )
+
+
+def _build_company_template_body() -> str:
+    """Generate the JSON template body from CompanyExtraction model fields."""
+    lines = []
+    for name, field_info in CompanyExtraction.model_fields.items():
+        type_hint = _type_hint(field_info)
+        desc = field_info.description or name
+        lines.append(f'  "{name}": "({type_hint}) {desc}"')
+    return ",\n".join(lines)
+
+
+_COMPANY_RULES = """規則：
+1. benefits_structured 只填文字中明確提及的項目，空的分類用空陣列 []
+2. interview_questions 用 JSON 陣列格式，每題一個字串
+3. ai_notes 請根據提供的資訊整理出客觀的重點摘要（2-3 句）
+4. 只回傳 JSON，不要其他文字
+5. 所有文字欄位請使用繁體中文
+6. 找不到的欄位填 null，不要自行推測
+7. 如果提供的文字不是公司相關資訊，只回傳 {"error": "非公司資訊，無法解析"}"""
+
+
+def build_company_system_prompt() -> str:
+    """Generate system prompt for company data extraction via Ollama."""
+    template_body = _build_company_template_body()
+    return f"""你是一個公司資訊整理助手。請將使用者提供的公司相關文字逐欄位整理，以繁體中文填入以下 JSON 格式。
+找不到的欄位填 null，不要自行推測。
+
+JSON 格式：
+{{
+{template_body}
+}}
+
+其中 benefits_structured 的格式範例：
+{_BENEFITS_EXAMPLE}
+
+{_COMPANY_RULES}"""
+
+
+def build_company_user_prompt() -> str:
+    """Generate a user-facing prompt for copying into online LLMs."""
+    template_body = _build_company_template_body()
+    return f"""請幫我把以下的公司資訊，整理成繁體中文 JSON 格式。每個欄位根據說明填入，找不到的填 null，不要自行推測。
+
+JSON 格式：
+{{
+{template_body}
+}}
+
+其中 benefits_structured 的格式範例：
+{_BENEFITS_EXAMPLE}
+
+{_COMPANY_RULES}
+
+以下是需要整理的公司資訊：
+"""
+
+
+def extraction_to_companydata(item: dict, raw_text: str = "") -> CompanyData:
+    """Validate an LLM output dict via CompanyExtraction, then convert to CompanyData.
+
+    Returns a CompanyData instance with serialized JSON fields.
+    """
+    extracted = CompanyExtraction.model_validate(item)
+    data = extracted.model_dump()
+
+    # Serialize benefits_structured to JSON string for DB storage
+    bs = data.pop("benefits_structured", None)
+    if bs is not None:
+        bs = {k: v for k, v in bs.items() if v}
+        data["benefits_structured"] = json.dumps(bs, ensure_ascii=False) if bs else None
+    else:
+        data["benefits_structured"] = None
+
+    # Serialize interview_questions if it's a list-like string
+    iq = data.get("interview_questions")
+    if iq is not None and isinstance(iq, str):
+        # Keep as-is if already JSON; otherwise wrap as a single-item list
+        try:
+            json.loads(iq)
+        except (json.JSONDecodeError, TypeError):
+            data["interview_questions"] = json.dumps([iq], ensure_ascii=False)
+
+    if raw_text:
+        data["raw_text"] = raw_text
+
+    return CompanyData(**{k: data[k] for k in CompanyData.model_fields if k in data})

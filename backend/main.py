@@ -12,7 +12,11 @@ from models import (
     CompanyData, CompanyUpdate, UserProfile,
 )
 from llm_parser import parse_job_text, check_ollama_available, MODEL
-from extraction_schema import build_user_prompt, extraction_to_jobdata
+from extraction_schema import (
+    build_user_prompt, extraction_to_jobdata,
+    build_company_user_prompt, extraction_to_companydata,
+)
+from company_normalizer import normalize as normalize_company, invalidate_embedding_cache
 
 app = FastAPI(title="FindYourJob API")
 
@@ -61,13 +65,35 @@ UPDATABLE_COLUMNS = {
 COMPANY_COLUMNS = (
     "name, benefits, benefits_structured, "
     "contact_name, contact_title, contact_phone, contact_email, "
-    "address, website, notes"
+    "address, website, notes, "
+    "interview_process, interview_questions, ai_notes, "
+    "industry, company_size, culture"
 )
 
 UPDATABLE_COMPANY_COLUMNS = {
     "name", "benefits", "benefits_structured",
     "contact_name", "contact_title", "contact_phone", "contact_email",
     "address", "website", "notes",
+    "interview_process", "interview_questions", "ai_notes",
+    "industry", "company_size", "culture",
+}
+
+_COMPANY_TRACKABLE_FIELDS = {
+    "name", "benefits", "benefits_structured",
+    "contact_name", "contact_title", "contact_phone", "contact_email",
+    "address", "website", "notes",
+    "interview_process", "interview_questions", "ai_notes",
+    "industry", "company_size", "culture",
+}
+
+_COMPANY_FIELD_LABELS = {
+    "name": "公司名稱", "benefits": "福利", "benefits_structured": "結構化福利",
+    "contact_name": "聯絡人", "contact_title": "聯絡人職稱",
+    "contact_phone": "電話", "contact_email": "Email",
+    "address": "公司地址", "website": "公司網站", "notes": "備註",
+    "interview_process": "面試流程", "interview_questions": "考古題",
+    "ai_notes": "AI 備註", "industry": "產業別",
+    "company_size": "公司規模", "culture": "工作文化",
 }
 
 
@@ -288,7 +314,12 @@ def calc_skill_match(job: JobData, conn) -> dict | None:
 # ── Company helpers ────────────────────────────────────
 
 def _find_or_create_company(conn, company_name: str, company_info: dict | None = None) -> int:
-    """Find an existing company by name, or create a new one.
+    """Find an existing company by name (with fuzzy/embedding matching), or create a new one.
+
+    Uses the 3-layer normalization pipeline:
+    1. Exact match on preprocessed name
+    2. rapidfuzz fuzzy match (if installed)
+    3. sentence-transformers embedding match (if installed)
 
     company_info may contain: contact_name, contact_title, contact_phone,
     contact_email, address, website, plus benefits/benefits_structured
@@ -296,21 +327,25 @@ def _find_or_create_company(conn, company_name: str, company_info: dict | None =
 
     Returns the company ID.
     """
-    row = conn.execute(
-        "SELECT id FROM companies WHERE name = ?", (company_name,)
-    ).fetchone()
+    result = normalize_company(company_name, conn)
 
-    if row:
-        company_id = row["id"]
-        # Fill in any NULL fields on the existing company with new info
+    if result.company_id is not None and not result.needs_review:
+        # Confident match → use existing company
         if company_info:
-            _fill_company_nulls(conn, company_id, company_info)
-        return company_id
+            _fill_company_nulls(conn, result.company_id, company_info)
+        return result.company_id
 
-    # Create new company
+    if result.company_id is not None and result.needs_review:
+        # Matched but needs review — still link to the candidate for now,
+        # but the needs_review flag will surface in the API response
+        if company_info:
+            _fill_company_nulls(conn, result.company_id, company_info)
+        return result.company_id
+
+    # No match → create new company
     info = company_info or {}
     cursor = conn.execute(
-        f"INSERT INTO companies ({COMPANY_COLUMNS}) VALUES ({','.join('?' * 10)})",
+        f"INSERT INTO companies ({COMPANY_COLUMNS}) VALUES ({','.join('?' * 16)})",
         (
             company_name,
             info.get("benefits"),
@@ -322,6 +357,12 @@ def _find_or_create_company(conn, company_name: str, company_info: dict | None =
             info.get("address"),
             info.get("website"),
             info.get("notes"),
+            info.get("interview_process"),
+            info.get("interview_questions"),
+            info.get("ai_notes"),
+            info.get("industry"),
+            info.get("company_size"),
+            info.get("culture"),
         ),
     )
     return cursor.lastrowid
@@ -409,6 +450,28 @@ def update_company(company_id: int, update: CompanyUpdate):
                 "UPDATE jobs SET company = ? WHERE company_id = ?",
                 (updates["name"], company_id),
             )
+            # Invalidate embedding cache for old name
+            invalidate_embedding_cache(row["name"])
+
+        # Track field metadata and edit history
+        existing_meta = json.loads(row["field_metadata"] or "{}") if row["field_metadata"] else {}
+        existing_history = json.loads(row["edit_history"] or "[]") if row["edit_history"] else []
+        ts = _now_iso()
+        changed_fields = []
+        for field in updates:
+            if field in _COMPANY_TRACKABLE_FIELDS:
+                existing_meta[field] = {"source": "user", "updated_at": ts}
+                changed_fields.append(field)
+
+        if changed_fields:
+            existing_history.append({
+                "action": "manual_edit",
+                "timestamp": ts,
+                "source": "user",
+                "fields_updated": changed_fields,
+            })
+            updates["field_metadata"] = json.dumps(existing_meta, ensure_ascii=False)
+            updates["edit_history"] = json.dumps(existing_history, ensure_ascii=False)
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [company_id]
@@ -435,6 +498,7 @@ def delete_company(company_id: int):
             (company_id,),
         )
         conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+        invalidate_embedding_cache(row["name"])
         return {"message": "已刪除公司（相關職缺已取消關聯）"}
 
 
@@ -463,6 +527,175 @@ def list_company_jobs(company_id: int):
                 job.skill_match = json.dumps(match, ensure_ascii=False)
             jobs.append(job)
         return jobs
+
+
+# ── Company name normalization ─────────────────────────
+
+class CompanyNormalizeRequest(PydanticBaseModel):
+    name: str
+
+
+@app.post("/api/companies/normalize")
+def normalize_company_name(req: CompanyNormalizeRequest):
+    """Preview company name normalization result.
+
+    Returns the 3-layer pipeline result so the frontend can:
+    - Show the matched canonical name
+    - Display confidence and method
+    - Let the user confirm or override when needs_review=True
+    """
+    with get_db() as conn:
+        result = normalize_company(req.name, conn)
+        return {
+            "canonical_name": result.canonical_name,
+            "company_id": result.company_id,
+            "confidence": round(result.confidence, 3),
+            "method": result.method,
+            "needs_review": result.needs_review,
+            "preprocessed": result.preprocessed,
+            "candidates": result.candidates,
+        }
+
+
+# ── Company supplement (AI enrichment) ─────────────────
+
+class CompanySupplementRequest(PydanticBaseModel):
+    raw_text: str = ""
+    json_text: str = ""
+    method: str = "import"  # "import" only (no local model for company-only text)
+    selected_fields: list[str] | None = None
+
+
+@app.get("/api/companies/prompt-template")
+def get_company_prompt_template():
+    """Return the user-facing prompt for company data extraction."""
+    return {"prompt": build_company_user_prompt()}
+
+
+def _parse_company_supplement_input(req: CompanySupplementRequest) -> tuple[CompanyData, str]:
+    """Parse company supplement request. Returns (parsed_company, source_type)."""
+    if not req.json_text.strip():
+        raise HTTPException(status_code=400, detail="JSON 內容不能為空")
+    cleaned = _clean_json_text(req.json_text)
+    try:
+        parsed = json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f"JSON 格式錯誤：{e}")
+    if isinstance(parsed, dict) and "error" in parsed:
+        raise HTTPException(status_code=400, detail=parsed["error"])
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=400, detail="JSON 格式不正確，需要一個物件")
+    try:
+        company = extraction_to_companydata(
+            parsed, req.raw_text or json.dumps(parsed, ensure_ascii=False)
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
+    return company, "import"
+
+
+@app.post("/api/companies/{company_id}/supplement/preview")
+def preview_company_supplement(company_id: int, req: CompanySupplementRequest):
+    """Parse new company data and return conflicts/new fields without saving."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此公司")
+
+        existing = dict(row)
+        new_company, source = _parse_company_supplement_input(req)
+        new_data = new_company.model_dump()
+
+        conflicts = []
+        new_fields = []
+        for field in _COMPANY_TRACKABLE_FIELDS:
+            new_val = new_data.get(field)
+            if new_val is None:
+                continue
+            old_val = existing.get(field)
+            if old_val is not None and old_val != new_val:
+                conflicts.append({
+                    "field": field,
+                    "label": _COMPANY_FIELD_LABELS.get(field, field),
+                    "old_value": old_val,
+                    "new_value": new_val,
+                })
+            elif old_val is None:
+                new_fields.append({
+                    "field": field,
+                    "label": _COMPANY_FIELD_LABELS.get(field, field),
+                    "new_value": new_val,
+                })
+
+        return {
+            "source": source,
+            "conflicts": conflicts,
+            "new_fields": new_fields,
+        }
+
+
+@app.post("/api/companies/{company_id}/supplement", response_model=CompanyData)
+def supplement_company(company_id: int, req: CompanySupplementRequest):
+    """Parse and merge new company data into an existing company record."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此公司")
+
+        existing = dict(row)
+        new_company, source = _parse_company_supplement_input(req)
+        new_data = new_company.model_dump()
+
+        # Determine which fields to update
+        allowed = set(req.selected_fields) if req.selected_fields else None
+
+        existing_meta = json.loads(existing.get("field_metadata") or "{}")
+        existing_history = json.loads(existing.get("edit_history") or "[]")
+        ts = _now_iso()
+        updates = {}
+        changed_fields = []
+
+        for field in _COMPANY_TRACKABLE_FIELDS:
+            new_val = new_data.get(field)
+            if new_val is None:
+                continue
+            if allowed is not None and field not in allowed:
+                continue
+            updates[field] = new_val
+            existing_meta[field] = {"source": source, "updated_at": ts}
+            changed_fields.append(field)
+
+        # Append raw_text
+        old_raw = existing.get("raw_text") or ""
+        new_raw = req.raw_text.strip() if req.raw_text else ""
+        if new_raw:
+            updates["raw_text"] = (old_raw + "\n\n---\n\n" + new_raw) if old_raw else new_raw
+
+        if not changed_fields:
+            raise HTTPException(status_code=400, detail="解析後沒有新的欄位可更新")
+
+        existing_history.append({
+            "action": "supplement",
+            "timestamp": ts,
+            "source": source,
+            "fields_updated": changed_fields,
+        })
+
+        updates["field_metadata"] = json.dumps(existing_meta, ensure_ascii=False)
+        updates["edit_history"] = json.dumps(existing_history, ensure_ascii=False)
+
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [company_id]
+        conn.execute(f"UPDATE companies SET {set_clause} WHERE id = ?", values)
+
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        return _row_to_company(row, conn)
 
 
 # ── Jobs CRUD ───────────────────────────────────────────
@@ -716,10 +949,16 @@ def update_job(job_id: int, update: JobUpdate):
         if not row:
             raise HTTPException(status_code=404, detail="找不到此職缺")
 
-        # If company name changed, update company linkage
+        # If company name changed, use normalizer for smart matching
         if "company" in updates and updates["company"] != row["company"]:
-            new_company_id = _find_or_create_company(conn, updates["company"])
-            updates["company_id"] = new_company_id
+            norm_result = normalize_company(updates["company"], conn)
+            if norm_result.company_id is not None:
+                updates["company_id"] = norm_result.company_id
+                # Use the canonical name for consistency
+                updates["company"] = norm_result.canonical_name
+            else:
+                new_company_id = _find_or_create_company(conn, updates["company"])
+                updates["company_id"] = new_company_id
 
         # Update field metadata — mark updated fields as source="user"
         existing_meta = json.loads(row["field_metadata"] or "{}")
