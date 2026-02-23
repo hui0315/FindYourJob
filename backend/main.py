@@ -1,6 +1,7 @@
 import json
 import re
 import os
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel as PydanticBaseModel
@@ -40,7 +41,8 @@ JOB_COLUMNS = (
     "title, company, salary_min, salary_max, salary_type, salary_guaranteed_months, "
     "location, job_type, workload, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
-    "language, source_url, notes, priority, mismatches, raw_text"
+    "language, source_url, notes, priority, mismatches, raw_text, "
+    "field_metadata, edit_history"
 )
 
 UPDATABLE_COLUMNS = {
@@ -295,7 +297,31 @@ def _clean_json_text(text: str) -> str:
     return text.strip()
 
 
-def _save_jobs_to_db(jobs: list[JobData]) -> list[JobData]:
+_TRACKABLE_FIELDS = {
+    "title", "company", "salary_min", "salary_max", "salary_type",
+    "salary_guaranteed_months", "location", "job_type", "workload",
+    "skills", "experience_years", "education", "remote_type",
+    "work_hours", "leave_policy", "benefits", "benefits_structured",
+    "language", "source_url", "notes", "priority",
+}
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _build_initial_metadata(job: JobData, source: str) -> dict:
+    """Build field_metadata for a newly created job."""
+    ts = _now_iso()
+    meta = {}
+    data = job.model_dump()
+    for field in _TRACKABLE_FIELDS:
+        if data.get(field) is not None:
+            meta[field] = {"source": source, "updated_at": ts}
+    return meta
+
+
+def _save_jobs_to_db(jobs: list[JobData], source: str = "llm") -> list[JobData]:
     """Save a list of JobData to DB with mismatch check and skill match."""
     saved = []
     with get_db() as conn:
@@ -304,8 +330,20 @@ def _save_jobs_to_db(jobs: list[JobData]) -> list[JobData]:
             mismatches = check_mismatches(job, profile)
             job.mismatches = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
 
+            # Build initial field metadata and edit history
+            meta = _build_initial_metadata(job, source)
+            job.field_metadata = json.dumps(meta, ensure_ascii=False)
+            ts = _now_iso()
+            history_entry = {
+                "action": "created",
+                "timestamp": ts,
+                "source": source,
+                "fields_updated": list(meta.keys()),
+            }
+            job.edit_history = json.dumps([history_entry], ensure_ascii=False)
+
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 23)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 25)})",
                 (
                     job.title, job.company, job.salary_min, job.salary_max,
                     job.salary_type, job.salary_guaranteed_months,
@@ -315,6 +353,7 @@ def _save_jobs_to_db(jobs: list[JobData]) -> list[JobData]:
                     job.benefits, job.benefits_structured,
                     job.language, job.source_url, job.notes, job.priority,
                     job.mismatches, job.raw_text,
+                    job.field_metadata, job.edit_history,
                 ),
             )
             job.id = cursor.lastrowid
@@ -364,7 +403,7 @@ def import_structured_jobs(req: JobImportRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
 
-    return _save_jobs_to_db(jobs)
+    return _save_jobs_to_db(jobs, source="import")
 
 
 @app.get("/api/jobs", response_model=list[JobData])
@@ -408,15 +447,216 @@ def update_job(job_id: int, update: JobUpdate):
     if not updates:
         raise HTTPException(status_code=400, detail="沒有要更新的欄位")
 
-    set_clause = ", ".join(f"{k} = ?" for k in updates)
-    values = list(updates.values()) + [job_id]
-
     with get_db() as conn:
-        conn.execute(f"UPDATE jobs SET {set_clause} WHERE id = ?", values)
         row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="找不到此職缺")
-        return JobData(**dict(row))
+
+        # Update field metadata — mark updated fields as source="user"
+        existing_meta = json.loads(row["field_metadata"] or "{}")
+        existing_history = json.loads(row["edit_history"] or "[]")
+        ts = _now_iso()
+        changed_fields = []
+        for field in updates:
+            if field in _TRACKABLE_FIELDS:
+                existing_meta[field] = {"source": "user", "updated_at": ts}
+                changed_fields.append(field)
+
+        if changed_fields:
+            existing_history.append({
+                "action": "manual_edit",
+                "timestamp": ts,
+                "source": "user",
+                "fields_updated": changed_fields,
+            })
+
+        updates["field_metadata"] = json.dumps(existing_meta, ensure_ascii=False)
+        updates["edit_history"] = json.dumps(existing_history, ensure_ascii=False)
+
+        # Recalculate mismatches
+        job_data = dict(row)
+        job_data.update(updates)
+        job_obj = JobData(**job_data)
+        profile = _get_profile(conn)
+        mismatches = check_mismatches(job_obj, profile)
+        updates["mismatches"] = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
+
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [job_id]
+        conn.execute(f"UPDATE jobs SET {set_clause} WHERE id = ?", values)
+
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        job = JobData(**dict(row))
+        match = calc_skill_match(job, conn)
+        if match:
+            job.skill_match = json.dumps(match, ensure_ascii=False)
+        return job
+
+
+class SupplementRequest(PydanticBaseModel):
+    raw_text: str = ""
+    json_text: str = ""
+    method: str = "local"  # "local" | "import"
+    selected_fields: list[str] | None = None  # If set, only update these fields
+
+
+# Field labels for conflict UI
+_FIELD_LABELS = {
+    "title": "職位名稱", "company": "公司名稱",
+    "salary_min": "最低薪資", "salary_max": "最高薪資",
+    "salary_type": "薪資類型", "salary_guaranteed_months": "保障月數",
+    "location": "工作地點", "job_type": "工作類型", "workload": "工作量",
+    "skills": "技能需求", "experience_years": "經驗年數",
+    "education": "學歷要求", "remote_type": "遠端類型",
+    "work_hours": "上班時間", "leave_policy": "休假制度",
+    "benefits": "福利", "benefits_structured": "結構化福利",
+    "language": "語文條件", "source_url": "來源連結",
+    "notes": "備註", "priority": "優先順序",
+}
+
+
+def _parse_supplement_input(req: SupplementRequest) -> tuple[JobData, str]:
+    """Parse supplement request data. Returns (parsed_job, source_type)."""
+    if req.method == "import":
+        if not req.json_text.strip():
+            raise HTTPException(status_code=400, detail="JSON 內容不能為空")
+        cleaned = _clean_json_text(req.json_text)
+        try:
+            parsed = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"JSON 格式錯誤：{e}")
+        if isinstance(parsed, dict) and "error" in parsed:
+            raise HTTPException(status_code=400, detail=parsed["error"])
+        if isinstance(parsed, dict):
+            items = [parsed.get("jobs", [parsed])[0]] if "jobs" in parsed else [parsed]
+        elif isinstance(parsed, list):
+            items = parsed[:1]
+        else:
+            raise HTTPException(status_code=400, detail="JSON 格式不正確")
+        if not items:
+            raise HTTPException(status_code=400, detail="沒有找到職缺資料")
+        try:
+            new_job = extraction_to_jobdata(items[0], req.raw_text or json.dumps(items[0], ensure_ascii=False))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
+        return new_job, "import"
+    else:
+        if not req.raw_text.strip():
+            raise HTTPException(status_code=400, detail="文字內容不能為空")
+        parsed_jobs = parse_job_text(req.raw_text)
+        if not parsed_jobs:
+            raise HTTPException(status_code=400, detail="無法解析出職缺資料")
+        return parsed_jobs[0], "llm"
+
+
+@app.post("/api/jobs/{job_id}/supplement/preview")
+def preview_supplement(job_id: int, req: SupplementRequest):
+    """Parse new data and return conflicts/new fields without saving."""
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此職缺")
+
+        existing = dict(row)
+        new_job, source = _parse_supplement_input(req)
+        new_data = new_job.model_dump()
+
+        conflicts = []
+        new_fields = []
+        for field in _TRACKABLE_FIELDS:
+            new_val = new_data.get(field)
+            if new_val is None:
+                continue
+            old_val = existing.get(field)
+            if old_val is not None and old_val != new_val:
+                conflicts.append({
+                    "field": field,
+                    "label": _FIELD_LABELS.get(field, field),
+                    "old_value": old_val,
+                    "new_value": new_val,
+                })
+            elif old_val is None:
+                new_fields.append({
+                    "field": field,
+                    "label": _FIELD_LABELS.get(field, field),
+                    "new_value": new_val,
+                })
+
+        return {
+            "source": source,
+            "conflicts": conflicts,
+            "new_fields": new_fields,
+        }
+
+
+@app.post("/api/jobs/{job_id}/supplement", response_model=JobData)
+def supplement_job(job_id: int, req: SupplementRequest):
+    """Parse raw text or import JSON and merge new fields into an existing job."""
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此職缺")
+
+        existing = dict(row)
+        new_job, source = _parse_supplement_input(req)
+        new_data = new_job.model_dump()
+
+        # Determine which fields to update
+        allowed = set(req.selected_fields) if req.selected_fields else None
+
+        existing_meta = json.loads(existing.get("field_metadata") or "{}")
+        existing_history = json.loads(existing.get("edit_history") or "[]")
+        ts = _now_iso()
+        updates = {}
+        changed_fields = []
+
+        for field in _TRACKABLE_FIELDS:
+            new_val = new_data.get(field)
+            if new_val is None:
+                continue
+            if allowed is not None and field not in allowed:
+                continue
+            updates[field] = new_val
+            existing_meta[field] = {"source": source, "updated_at": ts}
+            changed_fields.append(field)
+
+        # Append new raw_text to existing
+        old_raw = existing.get("raw_text") or ""
+        new_raw = req.raw_text.strip() if req.raw_text else ""
+        if new_raw:
+            updates["raw_text"] = (old_raw + "\n\n---\n\n" + new_raw) if old_raw else new_raw
+
+        if not changed_fields:
+            raise HTTPException(status_code=400, detail="解析後沒有新的欄位可更新")
+
+        existing_history.append({
+            "action": "supplement",
+            "timestamp": ts,
+            "source": source,
+            "fields_updated": changed_fields,
+        })
+
+        updates["field_metadata"] = json.dumps(existing_meta, ensure_ascii=False)
+        updates["edit_history"] = json.dumps(existing_history, ensure_ascii=False)
+
+        # Recalculate mismatches
+        merged = dict(existing)
+        merged.update(updates)
+        job_obj = JobData(**{k: merged[k] for k in JobData.model_fields if k in merged})
+        profile = _get_profile(conn)
+        mismatches = check_mismatches(job_obj, profile)
+        updates["mismatches"] = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
+
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [job_id]
+        conn.execute(f"UPDATE jobs SET {set_clause} WHERE id = ?", values)
+
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        job = JobData(**dict(row))
+        match = calc_skill_match(job, conn)
+        if match:
+            job.skill_match = json.dumps(match, ensure_ascii=False)
+        return job
 
 
 @app.delete("/api/jobs/{job_id}")

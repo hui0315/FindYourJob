@@ -54,6 +54,34 @@ export async function importJobs(jsonText, rawText = '') {
   return res.json();
 }
 
+export async function previewSupplement(id, { rawText = '', jsonText = '', method = 'local' }) {
+  const res = await fetch(`${BASE}/jobs/${id}/supplement/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw_text: rawText, json_text: jsonText, method }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || '預覽失敗');
+  }
+  return res.json();
+}
+
+export async function supplementJob(id, { rawText = '', jsonText = '', method = 'local', selectedFields = null }) {
+  const body = { raw_text: rawText, json_text: jsonText, method };
+  if (selectedFields) body.selected_fields = selectedFields;
+  const res = await fetch(`${BASE}/jobs/${id}/supplement`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || '補充失敗');
+  }
+  return res.json();
+}
+
 export async function fetchPromptTemplate() {
   const res = await fetch(`${BASE}/prompt-template`);
   if (!res.ok) return null;
