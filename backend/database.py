@@ -151,6 +151,18 @@ def init_db():
                 status TEXT DEFAULT 'none' CHECK (status IN ('known', 'learning', 'none'))
             )
         """)
+        # Migrate user_profile: add new columns if missing
+        profile_existing = {
+            row[1] for row in conn.execute("PRAGMA table_info(user_profile)").fetchall()
+        }
+        profile_migrations = {
+            "preferred_job_types": "TEXT",
+            "preferred_remote_types": "TEXT",
+        }
+        for col, col_type in profile_migrations.items():
+            if col not in profile_existing:
+                conn.execute(f"ALTER TABLE user_profile ADD COLUMN {col} {col_type}")
+
         # Ensure exactly one profile row exists
         conn.execute("""
             INSERT OR IGNORE INTO user_profile (id) VALUES (1)

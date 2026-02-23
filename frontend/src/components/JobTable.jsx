@@ -411,12 +411,20 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       {job.title}
                     </h3>
                     {job.job_type && (
-                      <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded">
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        hasMismatch && mismatches.some((m) => m.type === 'job_type')
+                          ? 'bg-red-50 text-red-600 border border-red-200'
+                          : 'bg-blue-50 text-blue-600'
+                      }`}>
                         {JOB_TYPE_LABELS[job.job_type] || job.job_type}
                       </span>
                     )}
                     {job.remote_type && (
-                      <span className="text-xs px-2 py-0.5 bg-purple-50 text-purple-600 rounded">
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        hasMismatch && mismatches.some((m) => m.type === 'remote_type')
+                          ? 'bg-red-50 text-red-600 border border-red-200'
+                          : 'bg-purple-50 text-purple-600'
+                      }`}>
                         {REMOTE_LABELS[job.remote_type] || job.remote_type}
                       </span>
                     )}
@@ -448,20 +456,14 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
 
                 {/* Salary */}
                 <div className="shrink-0 text-right">
-                  <p className={`font-medium ${
-                    hasMismatch && mismatches.some((m) => m.type === 'salary')
-                      ? 'text-red-600' : 'text-green-700'
-                  }`}>
+                  <p className="font-medium text-green-700">
                     {formatSalary(job.salary_min, job.salary_max, job.salary_type, job.salary_guaranteed_months)}
                   </p>
                 </div>
 
                 {/* City */}
                 <div className="shrink-0 w-20 text-center">
-                  <p className={`text-sm ${
-                    hasMismatch && mismatches.some((m) => m.type === 'location')
-                      ? 'text-red-600 font-medium' : 'text-gray-500'
-                  }`}>{job.city || '-'}</p>
+                  <p className="text-sm text-gray-500">{job.city || '-'}</p>
                 </div>
 
                 {/* Workload */}
@@ -501,10 +503,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     {job.location && (
                       <div>
                         <span className="text-gray-400">工作地點：</span>
-                        <span className={
-                          hasMismatch && mismatches.some((m) => m.type === 'location')
-                            ? 'text-red-600 font-medium' : 'text-gray-700'
-                        }>
+                        <span className="text-gray-700">
                           {job.location}
                         </span>
                         <SourceBadge fieldKey="location" fieldMeta={fieldMeta} />
@@ -544,7 +543,10 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     {job.remote_type && (
                       <div>
                         <span className="text-gray-400">遠端類型：</span>
-                        <span className="text-gray-700">
+                        <span className={
+                          hasMismatch && mismatches.some((m) => m.type === 'remote_type')
+                            ? 'text-red-600 font-medium' : 'text-gray-700'
+                        }>
                           {REMOTE_LABELS[job.remote_type] || job.remote_type}
                         </span>
                         <SourceBadge fieldKey="remote_type" fieldMeta={fieldMeta} />

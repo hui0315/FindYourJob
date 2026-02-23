@@ -140,11 +140,11 @@ def update_profile(profile: UserProfile):
         conn.execute(
             """UPDATE user_profile SET
                experience_years = ?, education = ?, skills = ?,
-               preferred_locations = ?, min_salary = ?, salary_type = ?
+               preferred_job_types = ?, preferred_remote_types = ?
                WHERE id = 1""",
             (
                 profile.experience_years, profile.education, profile.skills,
-                profile.preferred_locations, profile.min_salary, profile.salary_type,
+                profile.preferred_job_types, profile.preferred_remote_types,
             ),
         )
     return profile
@@ -186,32 +186,25 @@ def check_mismatches(job: JobData, profile: UserProfile) -> list[dict]:
                 "message": f"要求{edu_labels.get(job.education, job.education)}學歷",
             })
 
-    # Salary check — normalize both sides to monthly before comparing
-    if (profile.min_salary is not None
-            and job.salary_max is not None
-            and job.salary_type != "negotiable"
-            and profile.salary_type != "negotiable"):
-        job_monthly = normalize_salary_to_monthly(job.salary_max, job.salary_type)
-        profile_monthly = normalize_salary_to_monthly(profile.min_salary, profile.salary_type)
-        if job_monthly is not None and profile_monthly is not None and job_monthly < profile_monthly:
-            salary_type_labels = {"monthly": "月薪", "yearly": "年薪", "hourly": "時薪"}
-            job_label = salary_type_labels.get(job.salary_type, job.salary_type)
-            profile_label = salary_type_labels.get(profile.salary_type, profile.salary_type)
+    # Job type check
+    if profile.preferred_job_types and job.job_type:
+        prefs = [t.strip() for t in profile.preferred_job_types.split(",") if t.strip()]
+        if prefs and job.job_type not in prefs:
+            type_labels = {"full-time": "正職", "part-time": "兼職", "contract": "約聘", "intern": "實習"}
             issues.append({
-                "type": "salary",
-                "message": f"薪資上限 {job.salary_max:,}（{job_label}）低於你的期望 {profile.min_salary:,}（{profile_label}）",
+                "type": "job_type",
+                "message": f"此職缺為{type_labels.get(job.job_type, job.job_type)}，不在你的偏好中",
             })
 
-    # Location check
-    if profile.preferred_locations and job.location:
-        prefs = [loc.strip() for loc in profile.preferred_locations.split(",") if loc.strip()]
-        if prefs:
-            matched = any(pref in job.location or job.location in pref for pref in prefs)
-            if not matched:
-                issues.append({
-                    "type": "location",
-                    "message": f"工作地點 {job.location} 不在你的偏好地區",
-                })
+    # Remote type check
+    if profile.preferred_remote_types and job.remote_type:
+        prefs = [t.strip() for t in profile.preferred_remote_types.split(",") if t.strip()]
+        if prefs and job.remote_type not in prefs:
+            remote_labels = {"onsite": "到班", "hybrid": "混合", "remote": "遠端"}
+            issues.append({
+                "type": "remote_type",
+                "message": f"此職缺為{remote_labels.get(job.remote_type, job.remote_type)}，不在你的偏好中",
+            })
 
     return issues
 
