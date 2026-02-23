@@ -497,6 +497,96 @@ class SupplementRequest(PydanticBaseModel):
     raw_text: str = ""
     json_text: str = ""
     method: str = "local"  # "local" | "import"
+    selected_fields: list[str] | None = None  # If set, only update these fields
+
+
+# Field labels for conflict UI
+_FIELD_LABELS = {
+    "title": "職位名稱", "company": "公司名稱",
+    "salary_min": "最低薪資", "salary_max": "最高薪資",
+    "salary_type": "薪資類型", "salary_guaranteed_months": "保障月數",
+    "location": "工作地點", "job_type": "工作類型", "workload": "工作量",
+    "skills": "技能需求", "experience_years": "經驗年數",
+    "education": "學歷要求", "remote_type": "遠端類型",
+    "work_hours": "上班時間", "leave_policy": "休假制度",
+    "benefits": "福利", "benefits_structured": "結構化福利",
+    "language": "語文條件", "source_url": "來源連結",
+    "notes": "備註", "priority": "優先順序",
+}
+
+
+def _parse_supplement_input(req: SupplementRequest) -> tuple[JobData, str]:
+    """Parse supplement request data. Returns (parsed_job, source_type)."""
+    if req.method == "import":
+        if not req.json_text.strip():
+            raise HTTPException(status_code=400, detail="JSON 內容不能為空")
+        cleaned = _clean_json_text(req.json_text)
+        try:
+            parsed = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"JSON 格式錯誤：{e}")
+        if isinstance(parsed, dict) and "error" in parsed:
+            raise HTTPException(status_code=400, detail=parsed["error"])
+        if isinstance(parsed, dict):
+            items = [parsed.get("jobs", [parsed])[0]] if "jobs" in parsed else [parsed]
+        elif isinstance(parsed, list):
+            items = parsed[:1]
+        else:
+            raise HTTPException(status_code=400, detail="JSON 格式不正確")
+        if not items:
+            raise HTTPException(status_code=400, detail="沒有找到職缺資料")
+        try:
+            new_job = extraction_to_jobdata(items[0], req.raw_text or json.dumps(items[0], ensure_ascii=False))
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
+        return new_job, "import"
+    else:
+        if not req.raw_text.strip():
+            raise HTTPException(status_code=400, detail="文字內容不能為空")
+        parsed_jobs = parse_job_text(req.raw_text)
+        if not parsed_jobs:
+            raise HTTPException(status_code=400, detail="無法解析出職缺資料")
+        return parsed_jobs[0], "llm"
+
+
+@app.post("/api/jobs/{job_id}/supplement/preview")
+def preview_supplement(job_id: int, req: SupplementRequest):
+    """Parse new data and return conflicts/new fields without saving."""
+    with get_db() as conn:
+        row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此職缺")
+
+        existing = dict(row)
+        new_job, source = _parse_supplement_input(req)
+        new_data = new_job.model_dump()
+
+        conflicts = []
+        new_fields = []
+        for field in _TRACKABLE_FIELDS:
+            new_val = new_data.get(field)
+            if new_val is None:
+                continue
+            old_val = existing.get(field)
+            if old_val is not None and old_val != new_val:
+                conflicts.append({
+                    "field": field,
+                    "label": _FIELD_LABELS.get(field, field),
+                    "old_value": old_val,
+                    "new_value": new_val,
+                })
+            elif old_val is None:
+                new_fields.append({
+                    "field": field,
+                    "label": _FIELD_LABELS.get(field, field),
+                    "new_value": new_val,
+                })
+
+        return {
+            "source": source,
+            "conflicts": conflicts,
+            "new_fields": new_fields,
+        }
 
 
 @app.post("/api/jobs/{job_id}/supplement", response_model=JobData)
@@ -508,42 +598,12 @@ def supplement_job(job_id: int, req: SupplementRequest):
             raise HTTPException(status_code=404, detail="找不到此職缺")
 
         existing = dict(row)
-
-        # Parse new data
-        if req.method == "import":
-            if not req.json_text.strip():
-                raise HTTPException(status_code=400, detail="JSON 內容不能為空")
-            cleaned = _clean_json_text(req.json_text)
-            try:
-                parsed = json.loads(cleaned)
-            except json.JSONDecodeError as e:
-                raise HTTPException(status_code=400, detail=f"JSON 格式錯誤：{e}")
-            if isinstance(parsed, dict) and "error" in parsed:
-                raise HTTPException(status_code=400, detail=parsed["error"])
-            if isinstance(parsed, dict):
-                items = [parsed.get("jobs", [parsed])[0]] if "jobs" in parsed else [parsed]
-            elif isinstance(parsed, list):
-                items = parsed[:1]  # Only take the first for supplement
-            else:
-                raise HTTPException(status_code=400, detail="JSON 格式不正確")
-            if not items:
-                raise HTTPException(status_code=400, detail="沒有找到職缺資料")
-            try:
-                new_job = extraction_to_jobdata(items[0], req.raw_text or json.dumps(items[0], ensure_ascii=False))
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
-            source = "import"
-        else:
-            if not req.raw_text.strip():
-                raise HTTPException(status_code=400, detail="文字內容不能為空")
-            parsed_jobs = parse_job_text(req.raw_text)
-            if not parsed_jobs:
-                raise HTTPException(status_code=400, detail="無法解析出職缺資料")
-            new_job = parsed_jobs[0]
-            source = "llm"
-
-        # Merge: update existing job with non-null fields from new data
+        new_job, source = _parse_supplement_input(req)
         new_data = new_job.model_dump()
+
+        # Determine which fields to update
+        allowed = set(req.selected_fields) if req.selected_fields else None
+
         existing_meta = json.loads(existing.get("field_metadata") or "{}")
         existing_history = json.loads(existing.get("edit_history") or "[]")
         ts = _now_iso()
@@ -552,10 +612,13 @@ def supplement_job(job_id: int, req: SupplementRequest):
 
         for field in _TRACKABLE_FIELDS:
             new_val = new_data.get(field)
-            if new_val is not None:
-                updates[field] = new_val
-                existing_meta[field] = {"source": source, "updated_at": ts}
-                changed_fields.append(field)
+            if new_val is None:
+                continue
+            if allowed is not None and field not in allowed:
+                continue
+            updates[field] = new_val
+            existing_meta[field] = {"source": source, "updated_at": ts}
+            changed_fields.append(field)
 
         # Append new raw_text to existing
         old_raw = existing.get("raw_text") or ""
