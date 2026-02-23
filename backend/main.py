@@ -915,18 +915,38 @@ def _load_job_with_company(row, conn) -> JobData:
 def list_jobs(sort_by: str = "created_at", order: str = "desc"):
     allowed_sort = {
         "created_at", "title", "company", "salary_min", "salary_max",
-        "location", "workload", "priority", "experience_years", "education",
+        "priority", "experience_years", "education",
     }
-    if sort_by not in allowed_sort:
-        sort_by = "created_at"
     if order not in ("asc", "desc"):
         order = "desc"
 
+    # skill_match is computed at runtime, so we sort in Python
+    if sort_by == "skill_match":
+        db_sort = "created_at"
+    elif sort_by not in allowed_sort:
+        sort_by = "created_at"
+        db_sort = sort_by
+    else:
+        db_sort = sort_by
+
     with get_db() as conn:
         rows = conn.execute(
-            f"SELECT * FROM jobs ORDER BY {sort_by} {order}"
+            f"SELECT * FROM jobs ORDER BY {db_sort} {order}"
         ).fetchall()
-        return [_load_job_with_company(row, conn) for row in rows]
+        jobs = [_load_job_with_company(row, conn) for row in rows]
+
+        if sort_by == "skill_match":
+            reverse = order == "desc"
+            def _match_score(job: JobData) -> int:
+                if not job.skill_match:
+                    return -1
+                try:
+                    return json.loads(job.skill_match).get("score", 0)
+                except (json.JSONDecodeError, TypeError):
+                    return -1
+            jobs.sort(key=_match_score, reverse=reverse)
+
+        return jobs
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobData)

@@ -3,11 +3,9 @@ import JobEditModal from './JobEditModal';
 
 const SORT_OPTIONS = [
   { key: 'created_at', label: '加入時間', icon: '⏱' },
-  { key: 'salary_max', label: '薪資高低', icon: '$' },
-  { key: 'priority', label: '優先順序', icon: '!' },
-  { key: 'company', label: '公司名稱', icon: 'A' },
-  { key: 'location', label: '工作地點', icon: '⌂' },
-  { key: 'workload', label: '工作量', icon: '◷' },
+  { key: 'salary_max', label: '薪資', icon: '$' },
+  { key: 'priority', label: '優先順序', icon: '★' },
+  { key: 'skill_match', label: '匹配度', icon: '⚡' },
 ];
 
 const SALARY_TYPE_LABELS = {
@@ -197,7 +195,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
     if (sortBy === key) {
       onSortChange(key, order === 'asc' ? 'desc' : 'asc');
     } else {
-      const defaultOrder = key === 'salary_max' ? 'desc' : key === 'priority' ? 'asc' : 'desc';
+      const defaultOrder = key === 'priority' ? 'asc' : 'desc';
       onSortChange(key, defaultOrder);
     }
   }
