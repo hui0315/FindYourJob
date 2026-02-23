@@ -129,7 +129,7 @@ class JobUpdate(BaseModel):
 
 
 class MismatchItem(BaseModel):
-    type: str   # "salary" | "experience" | "education" | "location"
+    type: str   # "experience" | "education" | "job_type" | "remote_type"
     message: str
 
 
@@ -137,6 +137,9 @@ class UserProfile(BaseModel):
     experience_years: Optional[int] = None
     education: Optional[str] = None  # high_school, bachelor, master, phd
     skills: Optional[str] = None
+    preferred_job_types: Optional[str] = None      # comma-separated: "full-time,contract"
+    preferred_remote_types: Optional[str] = None    # comma-separated: "remote,hybrid"
+    # Legacy fields kept for DB compat (no longer used in matching)
     preferred_locations: Optional[str] = None
     min_salary: Optional[int] = None
     salary_type: str = "monthly"

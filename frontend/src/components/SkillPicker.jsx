@@ -1,12 +1,34 @@
 import { useState, useEffect } from 'react';
+import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import { fetchSkillPool, updateUserSkills } from '../api';
 
 const STATUS_CYCLE = ['none', 'known', 'learning'];
-const STATUS_DISPLAY = {
-  known:    { label: '已會',    bg: 'bg-green-100 border-green-400 text-green-800' },
-  learning: { label: '可補強',  bg: 'bg-amber-100 border-amber-400 text-amber-800' },
-  none:     { label: '',        bg: 'bg-gray-50 border-gray-300 text-gray-400' },
+
+const ZONES = {
+  known: {
+    title: '已會的技能',
+    containerBg: 'bg-green-50 border-green-200',
+    chipBg: 'bg-green-100 border-green-400 text-green-800',
+    emptyText: '點擊下方技能，標記你已會的技能',
+    dotColor: 'bg-green-400',
+  },
+  learning: {
+    title: '可快速補強',
+    containerBg: 'bg-amber-50 border-amber-200',
+    chipBg: 'bg-amber-100 border-amber-400 text-amber-800',
+    emptyText: '點擊已會的技能，可將其改標為「可快速補強」',
+    dotColor: 'bg-amber-400',
+  },
+  none: {
+    title: '尚未分類',
+    containerBg: 'bg-gray-50 border-gray-200',
+    chipBg: 'bg-gray-100 border-gray-300 text-gray-500',
+    emptyText: null,
+    dotColor: 'bg-gray-400',
+  },
 };
+
+const chipTransition = { type: 'spring', stiffness: 500, damping: 30 };
 
 export default function SkillPicker() {
   const [skills, setSkills] = useState([]);
@@ -50,8 +72,12 @@ export default function SkillPicker() {
     );
   }
 
-  const knownCount = skills.filter((s) => s.status === 'known').length;
-  const learningCount = skills.filter((s) => s.status === 'learning').length;
+  const grouped = {
+    known: skills.filter((s) => s.status === 'known'),
+    learning: skills.filter((s) => s.status === 'learning'),
+    none: skills.filter((s) => s.status === 'none'),
+  };
+
   const hasDirty = Object.keys(dirty).length > 0;
 
   return (
@@ -60,48 +86,64 @@ export default function SkillPicker() {
         技能匹配
       </h3>
       <p className="text-sm text-gray-400 mb-4">
-        點擊切換狀態：未選 → 已會 → 可補強 → 未選
+        點擊技能切換分類：未選 → 已會 → 可補強 → 未選
       </p>
 
-      {/* Legend */}
-      <div className="flex gap-4 mb-4 text-xs">
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-green-200 border border-green-400" />
-          已會 ({knownCount})
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-amber-200 border border-amber-400" />
-          可快速補強 ({learningCount})
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-gray-100 border border-gray-300" />
-          未選
-        </span>
-      </div>
+      <LayoutGroup>
+        <div className="space-y-4">
+          {['known', 'learning', 'none'].map((status) => {
+            const zone = ZONES[status];
+            const items = grouped[status];
 
-      {/* Skill chips */}
-      <div className="flex flex-wrap gap-2">
-        {skills.map(({ skill, status, job_count }) => {
-          const display = STATUS_DISPLAY[status] || STATUS_DISPLAY.none;
-          return (
-            <button
-              key={skill}
-              onClick={() => cycleStatus(skill, status)}
-              className={`px-3 py-1.5 rounded-lg border text-sm transition-all
-                         select-none cursor-pointer hover:shadow-sm
-                         ${display.bg}`}
-              title={`出現在 ${job_count} 筆職缺中`}
-            >
-              {skill}
-              {status !== 'none' && (
-                <span className="ml-1 text-xs opacity-70">
-                  {display.label}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
+            return (
+              <div
+                key={status}
+                className={`rounded-xl border p-4 ${zone.containerBg}`}
+              >
+                {/* Zone header */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className={`w-2.5 h-2.5 rounded-full ${zone.dotColor}`} />
+                  <span className="text-sm font-medium text-gray-700">
+                    {zone.title}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    ({items.length})
+                  </span>
+                </div>
+
+                {/* Skill chips or empty state */}
+                {items.length === 0 ? (
+                  zone.emptyText && (
+                    <p className="text-xs text-gray-400 italic">
+                      {zone.emptyText}
+                    </p>
+                  )
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <AnimatePresence>
+                      {items.map(({ skill, job_count }) => (
+                        <motion.button
+                          key={skill}
+                          layoutId={skill}
+                          layout
+                          transition={chipTransition}
+                          onClick={() => cycleStatus(skill, status)}
+                          className={`px-3 py-1.5 rounded-lg border text-sm
+                                     select-none cursor-pointer hover:shadow-sm
+                                     ${zone.chipBg}`}
+                          title={`出現在 ${job_count} 筆職缺中`}
+                        >
+                          {skill}
+                        </motion.button>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </LayoutGroup>
 
       {/* Save */}
       {hasDirty && (
