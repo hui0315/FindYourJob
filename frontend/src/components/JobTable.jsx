@@ -82,6 +82,56 @@ function parseBenefitsStructured(benefitsStructured) {
   }
 }
 
+/**
+ * Merge company benefits + job extra benefits into a single structured object.
+ * Returns { merged, hasCompany, hasJobExtra } for display purposes.
+ */
+function mergeBenefits(job) {
+  const companyBs = job.company_data
+    ? parseBenefitsStructured(job.company_data.benefits_structured)
+    : null;
+  const jobBs = parseBenefitsStructured(job.benefits_structured);
+
+  if (!companyBs && !jobBs) {
+    // Fallback to text
+    const companyText = job.company_data?.benefits;
+    const jobText = job.benefits;
+    return {
+      structured: null,
+      companyText,
+      jobText,
+      hasCompany: !!companyText,
+      hasJobExtra: !!jobText,
+    };
+  }
+
+  // Merge structured benefits
+  const merged = {};
+  const categories = new Set([
+    ...Object.keys(companyBs || {}),
+    ...Object.keys(jobBs || {}),
+  ]);
+
+  for (const cat of categories) {
+    const companyItems = (companyBs && companyBs[cat]) || [];
+    const jobItems = (jobBs && jobBs[cat]) || [];
+    // Deduplicate
+    const all = [...companyItems];
+    for (const item of jobItems) {
+      if (!all.includes(item)) all.push(item);
+    }
+    if (all.length > 0) merged[cat] = { items: all, companyItems, jobItems };
+  }
+
+  return {
+    structured: Object.keys(merged).length > 0 ? merged : null,
+    companyText: null,
+    jobText: null,
+    hasCompany: !!companyBs,
+    hasJobExtra: !!jobBs,
+  };
+}
+
 function parseMismatches(mismatches) {
   if (!mismatches) return [];
   try {
@@ -139,7 +189,7 @@ function SourceBadge({ fieldKey, fieldMeta }) {
   );
 }
 
-export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated }) {
+export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
 
@@ -196,6 +246,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           const hasMismatch = mismatches.length > 0;
           const skillMatch = parseSkillMatch(job.skill_match);
           const fieldMeta = parseFieldMeta(job);
+          const benefitsMerged = mergeBenefits(job);
 
           return (
             <div
@@ -251,7 +302,21 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-500 truncate">{job.company}</p>
+                  <p className="text-sm text-gray-500 truncate">
+                    {job.company_data ? (
+                      <button
+                        className="hover:text-blue-600 hover:underline transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onViewCompany) onViewCompany(job.company_id);
+                        }}
+                      >
+                        {job.company}
+                      </button>
+                    ) : (
+                      job.company
+                    )}
+                  </p>
                 </div>
 
                 {/* Salary */}
@@ -410,39 +475,79 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         <SourceBadge fieldKey="language" fieldMeta={fieldMeta} />
                       </div>
                     )}
+
+                    {/* ── Merged benefits (company + job extra) ── */}
                     {(() => {
-                      const bs = parseBenefitsStructured(job.benefits_structured);
-                      if (!bs) {
-                        // Fallback to legacy benefits text
-                        return job.benefits ? (
+                      if (benefitsMerged.structured) {
+                        const categories = Object.entries(benefitsMerged.structured);
+                        return (
+                          <div className="col-span-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-gray-400">福利制度：</span>
+                              {benefitsMerged.hasCompany && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-500 rounded">
+                                  公司福利
+                                </span>
+                              )}
+                              {benefitsMerged.hasJobExtra && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-teal-50 text-teal-500 rounded">
+                                  + 職缺額外
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {categories.map(([cat, { items, companyItems, jobItems }]) => {
+                                const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
+                                return items.map((item) => {
+                                  const isExtra = jobItems.includes(item) && !companyItems.includes(item);
+                                  return (
+                                    <span
+                                      key={`${cat}-${item}`}
+                                      className={`text-xs px-2 py-0.5 rounded border ${meta.color}
+                                        ${isExtra ? 'ring-1 ring-teal-300' : ''}`}
+                                      title={isExtra ? `${meta.label}（職缺額外）` : meta.label}
+                                    >
+                                      {item}
+                                      {isExtra && <span className="text-[9px] ml-0.5 text-teal-500">+</span>}
+                                    </span>
+                                  );
+                                });
+                              })}
+                            </div>
+                          </div>
+                        );
+                      }
+                      // Fallback to text
+                      const texts = [
+                        benefitsMerged.companyText,
+                        benefitsMerged.jobText,
+                      ].filter(Boolean);
+                      if (texts.length > 0) {
+                        return (
                           <div className="col-span-2">
                             <span className="text-gray-400">福利：</span>
-                            <span className="text-gray-700">{job.benefits}</span>
+                            <span className="text-gray-700">{texts.join('；')}</span>
                           </div>
-                        ) : null;
+                        );
                       }
-                      const categories = Object.entries(bs).filter(([, items]) => items.length > 0);
-                      if (categories.length === 0) return null;
-                      return (
-                        <div className="col-span-2">
-                          <span className="text-gray-400">福利制度：</span>
-                          <div className="flex flex-wrap gap-1.5 mt-1">
-                            {categories.map(([cat, items]) => {
-                              const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
-                              return items.map((item) => (
-                                <span
-                                  key={`${cat}-${item}`}
-                                  className={`text-xs px-2 py-0.5 rounded border ${meta.color}`}
-                                  title={meta.label}
-                                >
-                                  {item}
-                                </span>
-                              ));
-                            })}
-                          </div>
-                        </div>
-                      );
+                      return null;
                     })()}
+
+                    {/* Company contact info (from company_data) */}
+                    {job.company_data && (job.company_data.contact_name || job.company_data.contact_email || job.company_data.contact_phone) && (
+                      <div className="col-span-2">
+                        <span className="text-gray-400">公司聯絡：</span>
+                        <span className="text-gray-700">
+                          {[
+                            job.company_data.contact_name &&
+                              `${job.company_data.contact_name}${job.company_data.contact_title ? ` (${job.company_data.contact_title})` : ''}`,
+                            job.company_data.contact_phone,
+                            job.company_data.contact_email,
+                          ].filter(Boolean).join(' / ')}
+                        </span>
+                      </div>
+                    )}
+
                     {job.source_url && (
                       <div className="col-span-2">
                         <span className="text-gray-400">來源：</span>

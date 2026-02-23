@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import JobInput from './components/JobInput';
 import JobTable from './components/JobTable';
 import ProfileSettings from './components/ProfileSettings';
+import CompanyManager from './components/CompanyManager';
 import { fetchJobs, deleteJob, deleteAllJobs, fetchStatus } from './api';
 
 export default function App() {
@@ -9,7 +10,7 @@ export default function App() {
   const [sortBy, setSortBy] = useState('created_at');
   const [order, setOrder] = useState('desc');
   const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('input'); // 'input' | 'table' | 'profile'
+  const [view, setView] = useState('input'); // 'input' | 'table' | 'profile' | 'companies'
   const [status, setStatus] = useState(null);
 
   const loadJobs = useCallback(async () => {
@@ -61,10 +62,15 @@ export default function App() {
     }
   }
 
+  function handleViewCompany(companyId) {
+    setView('companies');
+  }
+
   const NAV_ITEMS = [
     { key: 'profile', label: '我的條件' },
     { key: 'input', label: '輸入職缺' },
     { key: 'table', label: '整理檢視', badge: jobs.length || null },
+    { key: 'companies', label: '公司管理' },
   ];
 
   return (
@@ -150,8 +156,13 @@ export default function App() {
               onRefresh={loadJobs}
               onDelete={handleDelete}
               onJobUpdated={handleJobUpdated}
+              onViewCompany={handleViewCompany}
             />
           </div>
+        )}
+
+        {view === 'companies' && (
+          <CompanyManager onNavigateToJob={(jobId) => setView('table')} />
         )}
       </main>
     </div>

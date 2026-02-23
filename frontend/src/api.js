@@ -126,3 +126,42 @@ export async function updateUserSkills(updates) {
   if (!res.ok) throw new Error('更新失敗');
   return res.json();
 }
+
+// ── Company API ──────────────────────────────────────────
+
+export async function fetchCompanies() {
+  const res = await fetch(`${BASE}/companies`);
+  if (!res.ok) throw new Error('載入公司失敗');
+  return res.json();
+}
+
+export async function fetchCompany(id) {
+  const res = await fetch(`${BASE}/companies/${id}`);
+  if (!res.ok) throw new Error('載入公司失敗');
+  return res.json();
+}
+
+export async function updateCompany(id, data) {
+  const res = await fetch(`${BASE}/companies/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || '更新公司失敗');
+  }
+  return res.json();
+}
+
+export async function deleteCompany(id) {
+  const res = await fetch(`${BASE}/companies/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('刪除公司失敗');
+  return res.json();
+}
+
+export async function fetchCompanyJobs(companyId) {
+  const res = await fetch(`${BASE}/companies/${companyId}/jobs`);
+  if (!res.ok) throw new Error('載入公司職缺失敗');
+  return res.json();
+}

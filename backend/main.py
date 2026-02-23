@@ -7,7 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel as PydanticBaseModel
 
 from database import init_db, get_db
-from models import JobParseRequest, JobData, JobUpdate, UserProfile
+from models import (
+    JobParseRequest, JobData, JobUpdate,
+    CompanyData, CompanyUpdate, UserProfile,
+)
 from llm_parser import parse_job_text, check_ollama_available, MODEL
 from extraction_schema import build_user_prompt, extraction_to_jobdata
 
@@ -38,7 +41,7 @@ def normalize_salary_to_monthly(amount: int | None, salary_type: str) -> int | N
     return amount
 
 JOB_COLUMNS = (
-    "title, company, salary_min, salary_max, salary_type, salary_guaranteed_months, "
+    "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
     "location, job_type, workload, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
     "language, source_url, notes, priority, mismatches, raw_text, "
@@ -46,12 +49,25 @@ JOB_COLUMNS = (
 )
 
 UPDATABLE_COLUMNS = {
-    "title", "company", "salary_min", "salary_max", "salary_type",
+    "title", "company", "company_id",
+    "salary_min", "salary_max", "salary_type",
     "salary_guaranteed_months",
     "location", "job_type", "workload", "skills", "experience_years",
     "education", "remote_type", "work_hours", "leave_policy",
     "benefits", "benefits_structured", "language",
     "source_url", "notes", "priority",
+}
+
+COMPANY_COLUMNS = (
+    "name, benefits, benefits_structured, "
+    "contact_name, contact_title, contact_phone, contact_email, "
+    "address, website, notes"
+)
+
+UPDATABLE_COMPANY_COLUMNS = {
+    "name", "benefits", "benefits_structured",
+    "contact_name", "contact_title", "contact_phone", "contact_email",
+    "address", "website", "notes",
 }
 
 
@@ -269,6 +285,186 @@ def calc_skill_match(job: JobData, conn) -> dict | None:
     }
 
 
+# ── Company helpers ────────────────────────────────────
+
+def _find_or_create_company(conn, company_name: str, company_info: dict | None = None) -> int:
+    """Find an existing company by name, or create a new one.
+
+    company_info may contain: contact_name, contact_title, contact_phone,
+    contact_email, address, website, plus benefits/benefits_structured
+    from the extraction.
+
+    Returns the company ID.
+    """
+    row = conn.execute(
+        "SELECT id FROM companies WHERE name = ?", (company_name,)
+    ).fetchone()
+
+    if row:
+        company_id = row["id"]
+        # Fill in any NULL fields on the existing company with new info
+        if company_info:
+            _fill_company_nulls(conn, company_id, company_info)
+        return company_id
+
+    # Create new company
+    info = company_info or {}
+    cursor = conn.execute(
+        f"INSERT INTO companies ({COMPANY_COLUMNS}) VALUES ({','.join('?' * 10)})",
+        (
+            company_name,
+            info.get("benefits"),
+            info.get("benefits_structured"),
+            info.get("contact_name"),
+            info.get("contact_title"),
+            info.get("contact_phone"),
+            info.get("contact_email"),
+            info.get("address"),
+            info.get("website"),
+            info.get("notes"),
+        ),
+    )
+    return cursor.lastrowid
+
+
+def _fill_company_nulls(conn, company_id: int, info: dict):
+    """Update NULL fields on an existing company with new values (non-destructive)."""
+    row = conn.execute("SELECT * FROM companies WHERE id = ?", (company_id,)).fetchone()
+    if not row:
+        return
+
+    updates = {}
+    for field in UPDATABLE_COMPANY_COLUMNS:
+        if field == "name":
+            continue  # never overwrite company name
+        new_val = info.get(field)
+        if new_val is not None and row[field] is None:
+            updates[field] = new_val
+
+    if updates:
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [company_id]
+        conn.execute(f"UPDATE companies SET {set_clause} WHERE id = ?", values)
+
+
+def _row_to_company(row, conn=None) -> CompanyData:
+    """Convert a DB row to CompanyData, optionally computing job_count."""
+    data = dict(row)
+    company = CompanyData(**{k: data[k] for k in CompanyData.model_fields if k in data})
+    if conn is not None:
+        count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM jobs WHERE company_id = ?", (company.id,)
+        ).fetchone()
+        company.job_count = count["cnt"] if count else 0
+    return company
+
+
+# ── Companies CRUD ─────────────────────────────────────
+
+@app.get("/api/companies", response_model=list[CompanyData])
+def list_companies():
+    """List all companies with their job counts."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM companies ORDER BY name ASC"
+        ).fetchall()
+        return [_row_to_company(row, conn) for row in rows]
+
+
+@app.get("/api/companies/{company_id}", response_model=CompanyData)
+def get_company(company_id: int):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此公司")
+        return _row_to_company(row, conn)
+
+
+@app.put("/api/companies/{company_id}", response_model=CompanyData)
+def update_company(company_id: int, update: CompanyUpdate):
+    updates = {k: v for k, v in update.model_dump().items()
+               if v is not None and k in UPDATABLE_COMPANY_COLUMNS}
+    if not updates:
+        raise HTTPException(status_code=400, detail="沒有要更新的欄位")
+
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此公司")
+
+        # If renaming, check for duplicates
+        if "name" in updates and updates["name"] != row["name"]:
+            existing = conn.execute(
+                "SELECT id FROM companies WHERE name = ? AND id != ?",
+                (updates["name"], company_id),
+            ).fetchone()
+            if existing:
+                raise HTTPException(status_code=409, detail="已有同名公司")
+            # Also update company name on linked jobs
+            conn.execute(
+                "UPDATE jobs SET company = ? WHERE company_id = ?",
+                (updates["name"], company_id),
+            )
+
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = list(updates.values()) + [company_id]
+        conn.execute(f"UPDATE companies SET {set_clause} WHERE id = ?", values)
+
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        return _row_to_company(row, conn)
+
+
+@app.delete("/api/companies/{company_id}")
+def delete_company(company_id: int):
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此公司")
+
+        # Unlink jobs (set company_id to NULL), don't delete them
+        conn.execute(
+            "UPDATE jobs SET company_id = NULL WHERE company_id = ?",
+            (company_id,),
+        )
+        conn.execute("DELETE FROM companies WHERE id = ?", (company_id,))
+        return {"message": "已刪除公司（相關職缺已取消關聯）"}
+
+
+@app.get("/api/companies/{company_id}/jobs", response_model=list[JobData])
+def list_company_jobs(company_id: int):
+    """List all jobs for a specific company."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (company_id,)
+        ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="找不到此公司")
+
+        company_data = _row_to_company(row, conn)
+        job_rows = conn.execute(
+            "SELECT * FROM jobs WHERE company_id = ? ORDER BY created_at DESC",
+            (company_id,),
+        ).fetchall()
+
+        jobs = []
+        for jr in job_rows:
+            job = JobData(**dict(jr))
+            job.company_data = company_data
+            match = calc_skill_match(job, conn)
+            if match:
+                job.skill_match = json.dumps(match, ensure_ascii=False)
+            jobs.append(job)
+        return jobs
+
+
 # ── Jobs CRUD ───────────────────────────────────────────
 
 @app.post("/api/jobs/parse", response_model=list[JobData])
@@ -276,8 +472,8 @@ def parse_and_save_jobs(req: JobParseRequest):
     if not req.raw_text.strip():
         raise HTTPException(status_code=400, detail="文字內容不能為空")
 
-    parsed_jobs = parse_job_text(req.raw_text)
-    return _save_jobs_to_db(parsed_jobs)
+    parsed_results = parse_job_text(req.raw_text)
+    return _save_jobs_to_db(parsed_results)
 
 
 class JobImportRequest(PydanticBaseModel):
@@ -321,12 +517,63 @@ def _build_initial_metadata(job: JobData, source: str) -> dict:
     return meta
 
 
-def _save_jobs_to_db(jobs: list[JobData], source: str = "llm") -> list[JobData]:
-    """Save a list of JobData to DB with mismatch check and skill match."""
+def _save_jobs_to_db(
+    parsed_results: list[tuple[JobData, dict]],
+    source: str = "llm",
+) -> list[JobData]:
+    """Save a list of (JobData, company_info) tuples to DB.
+
+    For each job:
+    1. Find or create a company record
+    2. If the company is new, move job benefits → company benefits
+    3. If the company already exists and has benefits, keep job benefits as extras
+    4. Link job to company via company_id
+    """
     saved = []
     with get_db() as conn:
         profile = _get_profile(conn)
-        for job in jobs:
+
+        for job, company_info in parsed_results:
+            # ── Company linkage ──
+            # Merge extracted benefits into company_info for new companies
+            company_info_with_benefits = dict(company_info)
+            company_info_with_benefits["benefits"] = job.benefits
+            company_info_with_benefits["benefits_structured"] = job.benefits_structured
+
+            company_id = _find_or_create_company(
+                conn, job.company, company_info_with_benefits
+            )
+            job.company_id = company_id
+
+            # Check if the company already has benefits
+            company_row = conn.execute(
+                "SELECT benefits_structured FROM companies WHERE id = ?",
+                (company_id,),
+            ).fetchone()
+            company_has_benefits = (
+                company_row
+                and company_row["benefits_structured"] is not None
+            )
+
+            if company_has_benefits:
+                # Company already has benefits → job benefits become extras
+                # Keep job.benefits and job.benefits_structured as-is (extras)
+                # But if the job benefits are identical to company benefits, clear them
+                if job.benefits_structured == company_row["benefits_structured"]:
+                    job.benefits = None
+                    job.benefits_structured = None
+            else:
+                # Company is new or has no benefits → move job benefits to company
+                if job.benefits_structured or job.benefits:
+                    conn.execute(
+                        "UPDATE companies SET benefits = ?, benefits_structured = ? WHERE id = ?",
+                        (job.benefits, job.benefits_structured, company_id),
+                    )
+                    # Clear job-level benefits (now on company)
+                    job.benefits = None
+                    job.benefits_structured = None
+
+            # ── Mismatch check ──
             mismatches = check_mismatches(job, profile)
             job.mismatches = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
 
@@ -343,9 +590,10 @@ def _save_jobs_to_db(jobs: list[JobData], source: str = "llm") -> list[JobData]:
             job.edit_history = json.dumps([history_entry], ensure_ascii=False)
 
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 25)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 26)})",
                 (
-                    job.title, job.company, job.salary_min, job.salary_max,
+                    job.title, job.company, job.company_id,
+                    job.salary_min, job.salary_max,
                     job.salary_type, job.salary_guaranteed_months,
                     job.location, job.job_type, job.workload,
                     job.skills, job.experience_years, job.education,
@@ -360,6 +608,14 @@ def _save_jobs_to_db(jobs: list[JobData], source: str = "llm") -> list[JobData]:
             match = calc_skill_match(job, conn)
             if match:
                 job.skill_match = json.dumps(match, ensure_ascii=False)
+
+            # Attach company data for response
+            c_row = conn.execute(
+                "SELECT * FROM companies WHERE id = ?", (company_id,)
+            ).fetchone()
+            if c_row:
+                job.company_data = _row_to_company(c_row)
+
             saved.append(job)
     return saved
 
@@ -396,14 +652,29 @@ def import_structured_jobs(req: JobImportRequest):
 
     try:
         fallback_raw = req.raw_text or None
-        jobs = [
+        results = [
             extraction_to_jobdata(item, fallback_raw or json.dumps(item, ensure_ascii=False))
             for item in items
         ]
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
 
-    return _save_jobs_to_db(jobs, source="import")
+    return _save_jobs_to_db(results, source="import")
+
+
+def _load_job_with_company(row, conn) -> JobData:
+    """Load a JobData from a DB row and attach its CompanyData."""
+    job = JobData(**dict(row))
+    if job.company_id:
+        c_row = conn.execute(
+            "SELECT * FROM companies WHERE id = ?", (job.company_id,)
+        ).fetchone()
+        if c_row:
+            job.company_data = _row_to_company(c_row)
+    match = calc_skill_match(job, conn)
+    if match:
+        job.skill_match = json.dumps(match, ensure_ascii=False)
+    return job
 
 
 @app.get("/api/jobs", response_model=list[JobData])
@@ -421,14 +692,7 @@ def list_jobs(sort_by: str = "created_at", order: str = "desc"):
         rows = conn.execute(
             f"SELECT * FROM jobs ORDER BY {sort_by} {order}"
         ).fetchall()
-        jobs = []
-        for row in rows:
-            job = JobData(**dict(row))
-            match = calc_skill_match(job, conn)
-            if match:
-                job.skill_match = json.dumps(match, ensure_ascii=False)
-            jobs.append(job)
-        return jobs
+        return [_load_job_with_company(row, conn) for row in rows]
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobData)
@@ -437,7 +701,7 @@ def get_job(job_id: int):
         row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="找不到此職缺")
-        return JobData(**dict(row))
+        return _load_job_with_company(row, conn)
 
 
 @app.put("/api/jobs/{job_id}", response_model=JobData)
@@ -451,6 +715,11 @@ def update_job(job_id: int, update: JobUpdate):
         row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="找不到此職缺")
+
+        # If company name changed, update company linkage
+        if "company" in updates and updates["company"] != row["company"]:
+            new_company_id = _find_or_create_company(conn, updates["company"])
+            updates["company_id"] = new_company_id
 
         # Update field metadata — mark updated fields as source="user"
         existing_meta = json.loads(row["field_metadata"] or "{}")
@@ -476,7 +745,7 @@ def update_job(job_id: int, update: JobUpdate):
         # Recalculate mismatches
         job_data = dict(row)
         job_data.update(updates)
-        job_obj = JobData(**job_data)
+        job_obj = JobData(**{k: job_data[k] for k in JobData.model_fields if k in job_data})
         profile = _get_profile(conn)
         mismatches = check_mismatches(job_obj, profile)
         updates["mismatches"] = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
@@ -486,11 +755,7 @@ def update_job(job_id: int, update: JobUpdate):
         conn.execute(f"UPDATE jobs SET {set_clause} WHERE id = ?", values)
 
         row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-        job = JobData(**dict(row))
-        match = calc_skill_match(job, conn)
-        if match:
-            job.skill_match = json.dumps(match, ensure_ascii=False)
-        return job
+        return _load_job_with_company(row, conn)
 
 
 class SupplementRequest(PydanticBaseModel):
@@ -515,8 +780,8 @@ _FIELD_LABELS = {
 }
 
 
-def _parse_supplement_input(req: SupplementRequest) -> tuple[JobData, str]:
-    """Parse supplement request data. Returns (parsed_job, source_type)."""
+def _parse_supplement_input(req: SupplementRequest) -> tuple[JobData, dict, str]:
+    """Parse supplement request data. Returns (parsed_job, company_info, source_type)."""
     if req.method == "import":
         if not req.json_text.strip():
             raise HTTPException(status_code=400, detail="JSON 內容不能為空")
@@ -536,17 +801,20 @@ def _parse_supplement_input(req: SupplementRequest) -> tuple[JobData, str]:
         if not items:
             raise HTTPException(status_code=400, detail="沒有找到職缺資料")
         try:
-            new_job = extraction_to_jobdata(items[0], req.raw_text or json.dumps(items[0], ensure_ascii=False))
+            new_job, company_info = extraction_to_jobdata(
+                items[0], req.raw_text or json.dumps(items[0], ensure_ascii=False)
+            )
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"資料驗證失敗：{e}")
-        return new_job, "import"
+        return new_job, company_info, "import"
     else:
         if not req.raw_text.strip():
             raise HTTPException(status_code=400, detail="文字內容不能為空")
-        parsed_jobs = parse_job_text(req.raw_text)
-        if not parsed_jobs:
+        parsed_results = parse_job_text(req.raw_text)
+        if not parsed_results:
             raise HTTPException(status_code=400, detail="無法解析出職缺資料")
-        return parsed_jobs[0], "llm"
+        job, company_info = parsed_results[0]
+        return job, company_info, "llm"
 
 
 @app.post("/api/jobs/{job_id}/supplement/preview")
@@ -558,7 +826,7 @@ def preview_supplement(job_id: int, req: SupplementRequest):
             raise HTTPException(status_code=404, detail="找不到此職缺")
 
         existing = dict(row)
-        new_job, source = _parse_supplement_input(req)
+        new_job, company_info, source = _parse_supplement_input(req)
         new_data = new_job.model_dump()
 
         conflicts = []
@@ -598,8 +866,12 @@ def supplement_job(job_id: int, req: SupplementRequest):
             raise HTTPException(status_code=404, detail="找不到此職缺")
 
         existing = dict(row)
-        new_job, source = _parse_supplement_input(req)
+        new_job, company_info, source = _parse_supplement_input(req)
         new_data = new_job.model_dump()
+
+        # Update company contact info if we got new data
+        if company_info and existing.get("company_id"):
+            _fill_company_nulls(conn, existing["company_id"], company_info)
 
         # Determine which fields to update
         allowed = set(req.selected_fields) if req.selected_fields else None
@@ -652,11 +924,7 @@ def supplement_job(job_id: int, req: SupplementRequest):
         conn.execute(f"UPDATE jobs SET {set_clause} WHERE id = ?", values)
 
         row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
-        job = JobData(**dict(row))
-        match = calc_skill_match(job, conn)
-        if match:
-            job.skill_match = json.dumps(match, ensure_ascii=False)
-        return job
+        return _load_job_with_company(row, conn)
 
 
 @app.delete("/api/jobs/{job_id}")
