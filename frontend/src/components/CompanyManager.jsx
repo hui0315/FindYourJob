@@ -875,11 +875,7 @@ function HistorySection({ history }) {
           {[...history].reverse().map((entry, i) => (
             <div key={i} className="border border-gray-200 rounded-lg p-2.5">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[10px] px-1.5 py-px rounded-full font-medium
-                  ${entry.source === 'user'
-                    ? 'bg-teal-100 text-teal-700'
-                    : 'bg-purple-100 text-purple-700'
-                  }`}>
+                <span className="text-[10px] px-1.5 py-px rounded-full font-medium bg-gray-100 text-gray-400">
                   {SOURCE_LABELS[entry.source] || entry.source}
                 </span>
                 <span className="text-[10px] text-gray-500">
@@ -1020,8 +1016,7 @@ function CompanyFieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
         <label className="text-sm font-medium text-gray-700">{field.label}</label>
         {meta && (
           <div className="flex items-center gap-1 mt-0.5">
-            <span className={`text-[10px] px-1 py-px rounded
-              ${meta.source === 'user' ? 'bg-teal-100 text-teal-600' : 'bg-gray-200 text-gray-500'}`}>
+            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
             <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
@@ -1046,8 +1041,7 @@ function CompanyEditFieldInput({ field, currentValue, editValue, onChange, isDir
         <label className="text-sm font-medium text-gray-700">{field.label}</label>
         {meta && (
           <>
-            <span className={`text-[10px] px-1 py-px rounded
-              ${meta.source === 'user' ? 'bg-teal-100 text-teal-600' : 'bg-purple-100 text-purple-600'}`}>
+            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
             <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>

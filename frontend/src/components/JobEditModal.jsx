@@ -760,8 +760,7 @@ function FieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
         <label className="text-sm font-medium text-gray-700">{field.label}</label>
         {meta && (
           <div className="flex items-center gap-1 mt-0.5">
-            <span className={`text-[10px] px-1 py-px rounded
-              ${meta.source === 'user' ? 'bg-teal-100 text-teal-600' : 'bg-gray-200 text-gray-500'}`}>
+            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
             <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
@@ -786,8 +785,7 @@ function EditFieldInput({ field, currentValue, editValue, onChange, isDirty, met
         <label className="text-sm font-medium text-gray-700">{field.label}</label>
         {meta && (
           <>
-            <span className={`text-[10px] px-1 py-px rounded
-              ${meta.source === 'user' ? 'bg-teal-100 text-teal-600' : 'bg-gray-200 text-gray-500'}`}>
+            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
             <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
