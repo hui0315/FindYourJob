@@ -797,17 +797,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
             </div>
           )}
         </div>
-
-        {/* Fixed footer — always visible */}
-        <div className="px-6 py-3 border-t border-gray-200 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 text-gray-500 border border-gray-300 rounded-lg text-sm
-                       hover:bg-gray-50 transition-colors"
-          >
-            關閉
-          </button>
-        </div>
       </div>
     </div>
   );
