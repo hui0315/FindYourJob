@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import JobEditModal from './JobEditModal';
 
 const SORT_OPTIONS = [
   { key: 'created_at', label: '加入時間', icon: '⏱' },
@@ -109,8 +110,38 @@ function matchScoreColor(score) {
   return 'bg-red-100 text-red-600 border-red-300';
 }
 
-export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete }) {
+const SOURCE_BADGE_STYLES = {
+  user: 'bg-teal-100 text-teal-600',
+  import: 'bg-purple-100 text-purple-600',
+  llm: 'bg-blue-100 text-blue-600',
+  regex: 'bg-gray-200 text-gray-500',
+};
+
+const SOURCE_BADGE_LABELS = {
+  user: '手動',
+  import: '匯入',
+  llm: '模型',
+  regex: 'Regex',
+};
+
+function parseFieldMeta(job) {
+  if (!job.field_metadata) return {};
+  try { return JSON.parse(job.field_metadata); } catch { return {}; }
+}
+
+function SourceBadge({ fieldKey, fieldMeta }) {
+  const meta = fieldMeta[fieldKey];
+  if (!meta || !meta.source || meta.source === 'llm') return null; // only show non-default sources
+  return (
+    <span className={`text-[10px] px-1 py-px rounded ml-1 ${SOURCE_BADGE_STYLES[meta.source] || SOURCE_BADGE_STYLES.llm}`}>
+      {SOURCE_BADGE_LABELS[meta.source] || meta.source}
+    </span>
+  );
+}
+
+export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated }) {
   const [expandedId, setExpandedId] = useState(null);
+  const [editingJob, setEditingJob] = useState(null);
 
   function handleSort(key) {
     if (sortBy === key) {
@@ -164,6 +195,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           const mismatches = parseMismatches(job.mismatches);
           const hasMismatch = mismatches.length > 0;
           const skillMatch = parseSkillMatch(job.skill_match);
+          const fieldMeta = parseFieldMeta(job);
 
           return (
             <div
@@ -283,6 +315,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         }>
                           {job.experience_years === 0 ? '不拘' : `${job.experience_years} 年以上`}
                         </span>
+                        <SourceBadge fieldKey="experience_years" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.education && (
@@ -294,12 +327,14 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         }>
                           {EDUCATION_LABELS[job.education] || job.education}
                         </span>
+                        <SourceBadge fieldKey="education" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.work_hours && (
                       <div>
                         <span className="text-gray-400">上班時間：</span>
                         <span className="text-gray-700">{job.work_hours}</span>
+                        <SourceBadge fieldKey="work_hours" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.remote_type && (
@@ -308,6 +343,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         <span className="text-gray-700">
                           {REMOTE_LABELS[job.remote_type] || job.remote_type}
                         </span>
+                        <SourceBadge fieldKey="remote_type" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.skills && (
@@ -357,18 +393,21 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       <div>
                         <span className="text-gray-400">保障年薪：</span>
                         <span className="text-green-700 font-medium">{job.salary_guaranteed_months} 個月</span>
+                        <SourceBadge fieldKey="salary_guaranteed_months" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.leave_policy && (
                       <div>
                         <span className="text-gray-400">休假制度：</span>
                         <span className="text-gray-700">{job.leave_policy}</span>
+                        <SourceBadge fieldKey="leave_policy" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.language && (
                       <div>
                         <span className="text-gray-400">語文條件：</span>
                         <span className="text-gray-700">{job.language}</span>
+                        <SourceBadge fieldKey="language" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {(() => {
@@ -439,6 +478,16 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
+                        setEditingJob(job);
+                      }}
+                      className="px-3 py-1 text-sm text-blue-600 border border-blue-200
+                                 rounded hover:bg-blue-50 transition-colors"
+                    >
+                      編輯
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
                         onDelete(job.id);
                       }}
                       className="px-3 py-1 text-sm text-red-500 border border-red-200
@@ -466,6 +515,18 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           </span>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingJob && (
+        <JobEditModal
+          job={editingJob}
+          onSave={(updatedJob) => {
+            setEditingJob(updatedJob);
+            if (onJobUpdated) onJobUpdated(updatedJob);
+          }}
+          onClose={() => setEditingJob(null)}
+        />
+      )}
     </div>
   );
 }

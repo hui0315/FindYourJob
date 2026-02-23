@@ -62,6 +62,8 @@ def init_db():
             "leave_policy": "TEXT",
             "benefits_structured": "TEXT",
             "language": "TEXT",
+            "field_metadata": "TEXT",
+            "edit_history": "TEXT",
         }
         for col, col_type in migrations.items():
             if col not in existing:

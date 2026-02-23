@@ -39,6 +39,8 @@ class JobData(BaseModel):
     mismatches: Optional[str] = None  # JSON string of mismatch reasons
     skill_match: Optional[str] = None  # JSON: {score, known, learning, missing, total}
     raw_text: Optional[str] = None
+    field_metadata: Optional[str] = None  # JSON: {field: {source, updated_at}}
+    edit_history: Optional[str] = None    # JSON: [{action, timestamp, source, fields_updated}]
     created_at: Optional[str] = None
 
 

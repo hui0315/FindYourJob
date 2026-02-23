@@ -36,6 +36,12 @@ export default function App() {
     setOrder(dir);
   }
 
+  function handleJobUpdated(updatedJob) {
+    setJobs((prev) =>
+      prev.map((j) => (j.id === updatedJob.id ? updatedJob : j))
+    );
+  }
+
   async function handleDelete(id) {
     try {
       await deleteJob(id);
@@ -143,6 +149,7 @@ export default function App() {
               onSortChange={handleSortChange}
               onRefresh={loadJobs}
               onDelete={handleDelete}
+              onJobUpdated={handleJobUpdated}
             />
           </div>
         )}
