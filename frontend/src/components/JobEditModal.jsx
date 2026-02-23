@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supplementJob, previewSupplement, updateJob, fetchPromptTemplate } from '../api';
 
 const SALARY_TYPE_OPTIONS = [
@@ -137,6 +137,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
   const [formData, setFormData] = useState({});
   const [dirtyFields, setDirtyFields] = useState(new Set());
   const [editSectionOpen, setEditSectionOpen] = useState(false);
+  const contentRef = useRef(null);
 
   const fieldMeta = parseFieldMetadata(job);
 
@@ -243,6 +244,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
       setPreviewData(null);
       setSupplementStep('input');
       onSave(updated);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -306,6 +308,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
       setSuccess('儲存成功');
       setDirtyFields(new Set());
       onSave(updated);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -370,7 +373,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
         </div>
 
         {/* Content */}
-        <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+        <div ref={contentRef} className="px-6 py-4 max-h-[60vh] overflow-y-auto">
           {error && (
             <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
               {error}
@@ -439,7 +442,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 </div>
               )}
 
-              {/* Save button + Close */}
+              {/* Save button */}
               <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
                 <button
                   onClick={handleManualSave}
@@ -449,13 +452,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
                              transition-colors"
                 >
                   {loading ? '儲存中...' : '儲存修改'}
-                </button>
-                <button
-                  onClick={onClose}
-                  className="px-5 py-2 text-gray-500 border border-gray-300 rounded-lg text-sm
-                             hover:bg-gray-50 transition-colors"
-                >
-                  關閉
                 </button>
                 {dirtyFields.size > 0 && (
                   <span className="text-xs text-gray-400 self-center">
