@@ -168,10 +168,10 @@ function matchScoreColor(score) {
 }
 
 const SOURCE_BADGE_STYLES = {
-  user: 'bg-teal-100 text-teal-600',
-  import: 'bg-purple-100 text-purple-600',
-  llm: 'bg-blue-100 text-blue-600',
-  regex: 'bg-gray-200 text-gray-500',
+  user: 'bg-gray-100 text-gray-400',
+  import: 'bg-gray-100 text-gray-400',
+  llm: 'bg-gray-100 text-gray-400',
+  regex: 'bg-gray-100 text-gray-400',
 };
 
 const SOURCE_BADGE_LABELS = {

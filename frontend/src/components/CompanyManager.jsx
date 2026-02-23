@@ -875,11 +875,7 @@ function HistorySection({ history }) {
           {[...history].reverse().map((entry, i) => (
             <div key={i} className="border border-gray-200 rounded-lg p-2.5">
               <div className="flex items-center gap-2 mb-1">
-                <span className={`text-[10px] px-1.5 py-px rounded-full font-medium
-                  ${entry.source === 'user'
-                    ? 'bg-teal-100 text-teal-700'
-                    : 'bg-purple-100 text-purple-700'
-                  }`}>
+                <span className="text-[10px] px-1.5 py-px rounded-full font-medium bg-gray-100 text-gray-400">
                   {SOURCE_LABELS[entry.source] || entry.source}
                 </span>
                 <span className="text-[10px] text-gray-500">

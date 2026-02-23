@@ -761,13 +761,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                   {[...editHistory].reverse().map((entry, i) => (
                     <div key={i} className="border border-gray-200 rounded-lg p-3">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium
-                          ${entry.source === 'user'
-                            ? 'bg-teal-100 text-teal-700'
-                            : entry.source === 'import'
-                              ? 'bg-purple-100 text-purple-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-400">
                           {SOURCE_LABELS[entry.source] || entry.source}
                         </span>
                         <span className="text-xs text-gray-500">
