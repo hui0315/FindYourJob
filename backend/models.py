@@ -13,10 +13,46 @@ class JobParseRequest(BaseModel):
         return v
 
 
+# ── Company models ─────────────────────────────────────
+
+
+class CompanyData(BaseModel):
+    id: Optional[int] = None
+    name: str
+    benefits: Optional[str] = None  # legacy free-text
+    benefits_structured: Optional[str] = None  # JSON: {bonus:[], insurance:[], ...}
+    contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    address: Optional[str] = None
+    website: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: Optional[str] = None
+    job_count: Optional[int] = None  # computed at read time
+
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    benefits: Optional[str] = None
+    benefits_structured: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_title: Optional[str] = None
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    address: Optional[str] = None
+    website: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ── Job models ─────────────────────────────────────────
+
+
 class JobData(BaseModel):
     id: Optional[int] = None
     title: str
     company: str
+    company_id: Optional[int] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     salary_type: str = "monthly"  # monthly, yearly, hourly, negotiable
@@ -30,8 +66,8 @@ class JobData(BaseModel):
     remote_type: Optional[str] = None  # onsite, hybrid, remote
     work_hours: Optional[str] = None
     leave_policy: Optional[str] = None  # 休假制度: 週休二日, 排班制, etc.
-    benefits: Optional[str] = None  # legacy free-text
-    benefits_structured: Optional[str] = None  # JSON: {bonus:[], insurance:[], leave:[], subsidy:[], system:[], other:[]}
+    benefits: Optional[str] = None  # job-specific extra benefits (text)
+    benefits_structured: Optional[str] = None  # job-specific extra benefits (JSON)
     language: Optional[str] = None  # 語文條件
     source_url: Optional[str] = None
     notes: Optional[str] = None
@@ -42,11 +78,14 @@ class JobData(BaseModel):
     field_metadata: Optional[str] = None  # JSON: {field: {source, updated_at}}
     edit_history: Optional[str] = None    # JSON: [{action, timestamp, source, fields_updated}]
     created_at: Optional[str] = None
+    # Company data (populated at read time via JOIN, not stored in jobs table)
+    company_data: Optional[CompanyData] = None
 
 
 class JobUpdate(BaseModel):
     title: Optional[str] = None
     company: Optional[str] = None
+    company_id: Optional[int] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     salary_type: Optional[str] = None

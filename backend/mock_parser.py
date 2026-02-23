@@ -8,8 +8,11 @@ import re
 from models import JobData
 
 
-def parse_job_text(raw_text: str) -> list[JobData]:
-    """Parse raw text and extract job listings using keyword matching."""
+def parse_job_text(raw_text: str) -> list[tuple[JobData, dict]]:
+    """Parse raw text and extract job listings using keyword matching.
+
+    Returns list of (JobData, company_info_dict) tuples.
+    """
     # Split by common delimiters that might separate multiple jobs
     chunks = re.split(r'\n{3,}|={3,}|-{3,}', raw_text)
     if not chunks or (len(chunks) == 1 and not chunks[0].strip()):
@@ -20,9 +23,9 @@ def parse_job_text(raw_text: str) -> list[JobData]:
         chunk = chunk.strip()
         if not chunk:
             continue
-        job = _extract_single_job(chunk)
+        job, company_info = _extract_single_job(chunk)
         if job.title != "未知職位" or job.company != "未知公司":
-            jobs.append(job)
+            jobs.append((job, company_info))
 
     if not jobs:
         jobs.append(_extract_single_job(raw_text))
@@ -30,8 +33,11 @@ def parse_job_text(raw_text: str) -> list[JobData]:
     return jobs
 
 
-def _extract_single_job(text: str) -> JobData:
-    """Extract a single job's data from text using heuristics."""
+def _extract_single_job(text: str) -> tuple[JobData, dict]:
+    """Extract a single job's data from text using heuristics.
+
+    Returns (JobData, company_info_dict).
+    """
     title = _extract_title(text)
     company = _extract_company(text)
     salary_min, salary_max, salary_type = _extract_salary(text)
@@ -47,6 +53,9 @@ def _extract_single_job(text: str) -> JobData:
     benefits_structured = _extract_benefits_structured(text)
     language = _extract_language(text)
 
+    # Extract company contact info
+    company_info = _extract_contact_info(text)
+
     # Build legacy benefits string from structured data
     benefits = None
     if benefits_structured:
@@ -56,7 +65,7 @@ def _extract_single_job(text: str) -> JobData:
         if all_items:
             benefits = ", ".join(all_items)
 
-    return JobData(
+    job = JobData(
         title=title,
         company=company,
         salary_min=salary_min,
@@ -76,6 +85,7 @@ def _extract_single_job(text: str) -> JobData:
         language=language,
         raw_text=text,
     )
+    return job, company_info
 
 
 def _extract_title(text: str) -> str:
@@ -376,3 +386,35 @@ def _extract_benefits_structured(text: str) -> dict | None:
     # Only return if we found anything
     has_any = any(items for items in result.values())
     return result if has_any else None
+
+
+def _extract_contact_info(text: str) -> dict:
+    """Extract company contact info from text."""
+    info = {}
+
+    # Contact name
+    m = re.search(r'(?:聯絡人|聯繫人|Contact)\s*[:：]\s*(.+)', text, re.IGNORECASE)
+    if m:
+        info["contact_name"] = m.group(1).strip()
+
+    # Contact email
+    m = re.search(r'[\w.+-]+@[\w-]+\.[\w.-]+', text)
+    if m:
+        info["contact_email"] = m.group(0)
+
+    # Contact phone
+    m = re.search(r'(?:電話|Tel|Phone)\s*[:：]\s*([\d\s()-]+)', text, re.IGNORECASE)
+    if m:
+        info["contact_phone"] = m.group(1).strip()
+
+    # Company website
+    m = re.search(r'(?:網站|Website|官網)\s*[:：]\s*(https?://\S+)', text, re.IGNORECASE)
+    if m:
+        info["website"] = m.group(1).strip()
+
+    # Company address
+    m = re.search(r'(?:公司地址|地址|Address)\s*[:：]\s*(.+)', text, re.IGNORECASE)
+    if m:
+        info["address"] = m.group(1).strip()
+
+    return info

@@ -35,8 +35,11 @@ def check_ollama_available() -> bool:
         return False
 
 
-def parse_with_ollama(raw_text: str) -> list[JobData]:
-    """Parse job text using Ollama local LLM."""
+def parse_with_ollama(raw_text: str) -> list[tuple[JobData, dict]]:
+    """Parse job text using Ollama local LLM.
+
+    Returns list of (JobData, company_info_dict) tuples.
+    """
     resp = httpx.post(
         f"{OLLAMA_BASE}/api/chat",
         json={
@@ -71,13 +74,15 @@ def parse_with_ollama(raw_text: str) -> list[JobData]:
     else:
         raise ValueError(f"Unexpected response format: {type(parsed)}")
 
-    # Convert each item through the extraction schema → JobData
+    # Convert each item through the extraction schema → (JobData, company_info)
     return [extraction_to_jobdata(item, raw_text) for item in items]
 
 
-def parse_job_text(raw_text: str) -> list[JobData]:
+def parse_job_text(raw_text: str) -> list[tuple[JobData, dict]]:
     """
     Main entry point: try Ollama first, fall back to regex parser.
+
+    Returns list of (JobData, company_info_dict) tuples.
     """
     if check_ollama_available():
         try:

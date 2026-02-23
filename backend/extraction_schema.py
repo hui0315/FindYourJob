@@ -100,6 +100,34 @@ class JobExtraction(BaseModel):
     source_url: Optional[str] = Field(None, description="來源網址")
     notes: Optional[str] = Field(None, description="其他值得注意的資訊")
 
+    # ── Company contact fields (will be separated into company record) ──
+    contact_name: Optional[str] = Field(
+        None, description="聯絡人姓名"
+    )
+    contact_title: Optional[str] = Field(
+        None, description="聯絡人職稱（如 HR, 人資主管）"
+    )
+    contact_phone: Optional[str] = Field(
+        None, description="聯絡電話"
+    )
+    contact_email: Optional[str] = Field(
+        None, description="聯絡 Email"
+    )
+    company_address: Optional[str] = Field(
+        None, description="公司地址（非工作地點，而是公司登記或總部地址）"
+    )
+    company_website: Optional[str] = Field(
+        None, description="公司網站"
+    )
+
+
+# ── Fields that belong to the company, not the job ────────
+
+_COMPANY_EXTRACT_FIELDS = {
+    "contact_name", "contact_title", "contact_phone",
+    "contact_email", "company_address", "company_website",
+}
+
 
 # ── Auto-generate system prompt from model ─────────────────
 
@@ -165,7 +193,8 @@ _RULES = """規則：
 5. 多筆職缺回傳 JSON 陣列
 6. 只回傳 JSON，不要其他文字
 7. 所有文字欄位請使用繁體中文
-8. 如果提供的文字不是職缺資訊，只回傳 {"error": "非職缺資訊，無法解析"}"""
+8. 如果提供的文字不是職缺資訊，只回傳 {"error": "非職缺資訊，無法解析"}
+9. 聯絡人資訊（contact_name, contact_email 等）如有提及請填入，找不到填 null"""
 
 
 def build_system_prompt() -> str:
@@ -204,12 +233,26 @@ def build_user_prompt() -> str:
 """
 
 
-# ── Convert extraction result to JobData ──────────────────
+# ── Convert extraction result to JobData + company info ───
 
-def extraction_to_jobdata(item: dict, raw_text: str) -> JobData:
-    """Validate an LLM output dict via JobExtraction, then convert to JobData."""
+def extraction_to_jobdata(item: dict, raw_text: str) -> tuple[JobData, dict]:
+    """Validate an LLM output dict via JobExtraction, then convert to JobData.
+
+    Returns:
+        (JobData, company_info_dict) — company_info_dict contains contact
+        fields and other company-level data extracted from the posting.
+    """
     extracted = JobExtraction.model_validate(item)
     data = extracted.model_dump()
+
+    # Separate company-level fields
+    company_info = {}
+    for field in _COMPANY_EXTRACT_FIELDS:
+        val = data.pop(field, None)
+        if val is not None:
+            # Remap company_address/company_website → address/website
+            key = field.replace("company_", "") if field.startswith("company_") else field
+            company_info[key] = val
 
     # Serialize benefits_structured to JSON string for DB storage
     bs = data.pop("benefits_structured", None)
@@ -221,4 +264,4 @@ def extraction_to_jobdata(item: dict, raw_text: str) -> JobData:
         data["benefits_structured"] = None
 
     data["raw_text"] = raw_text
-    return JobData(**data)
+    return JobData(**data), company_info
