@@ -248,28 +248,29 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
       {allCities && allCities.length > 0 && (
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className="text-sm text-gray-500 mr-1">篩選：</span>
-          <button
-            onClick={() => {
-              if (selectedCities.length === allCities.length) {
-                onCityFilterChange([]);
-              } else {
-                onCityFilterChange([...allCities]);
-              }
-            }}
-            className={`px-2 py-1 text-xs rounded border transition-colors ${
-              selectedCities.length === allCities.length
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400'
-            }`}
-          >
-            {selectedCities.length === allCities.length ? '清除全選' : '全選'}
-          </button>
+          {/* Select-all checkbox */}
+          <label className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
+            selectedCities.length === allCities.length
+              ? 'bg-blue-100 text-blue-700 border-blue-400 font-medium'
+              : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400'
+          }`}>
+            <input
+              type="checkbox"
+              checked={selectedCities.length === allCities.length}
+              onChange={(e) => {
+                onCityFilterChange(e.target.checked ? [...allCities] : []);
+              }}
+              className="accent-blue-600 w-3.5 h-3.5"
+            />
+            全選
+          </label>
+          <span className="text-gray-300">|</span>
           {allCities.map((city) => {
             const checked = selectedCities.includes(city);
             return (
               <label
                 key={city}
-                className={`flex items-center gap-1 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
+                className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
                   checked
                     ? 'bg-blue-50 text-blue-700 border-blue-300'
                     : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
@@ -285,7 +286,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       onCityFilterChange([...selectedCities, city]);
                     }
                   }}
-                  className="sr-only"
+                  className="accent-blue-600 w-3.5 h-3.5"
                 />
                 {city}
               </label>
