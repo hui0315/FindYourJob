@@ -519,24 +519,34 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                                 </span>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {categories.map(([cat, { items, companyItems, jobItems }]) => {
-                                const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
-                                return items.map((item) => {
-                                  const isExtra = jobItems.includes(item) && !companyItems.includes(item);
+                            <div className="space-y-1">
+                              {categories
+                                .filter(([, { items }]) => items.length > 0)
+                                .map(([cat, { items, companyItems, jobItems }]) => {
+                                  const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
                                   return (
-                                    <span
-                                      key={`${cat}-${item}`}
-                                      className={`text-xs px-2 py-0.5 rounded border ${meta.color}
-                                        ${isExtra ? 'ring-1 ring-teal-300' : ''}`}
-                                      title={isExtra ? `${meta.label}（職缺額外）` : meta.label}
-                                    >
-                                      {item}
-                                      {isExtra && <span className="text-[9px] ml-0.5 text-teal-500">+</span>}
-                                    </span>
+                                    <div key={cat} className="flex items-start gap-1.5">
+                                      <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${meta.color}`}>
+                                        {meta.label}
+                                      </span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {items.map((item) => {
+                                          const isExtra = jobItems.includes(item) && !companyItems.includes(item);
+                                          return (
+                                            <span
+                                              key={`${cat}-${item}`}
+                                              className={`text-xs px-2 py-0.5 rounded border ${meta.color}
+                                                ${isExtra ? 'ring-1 ring-teal-300' : ''}`}
+                                            >
+                                              {item}
+                                              {isExtra && <span className="text-[9px] ml-0.5 text-teal-500">+</span>}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
                                   );
-                                });
-                              })}
+                                })}
                             </div>
                           </div>
                         );

@@ -414,20 +414,28 @@ export default function CompanyManager({ onNavigateToJob }) {
                       {bs && (
                         <div className="mb-4">
                           <h4 className="text-xs font-medium text-gray-500 mb-2">福利制度</h4>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="space-y-1">
                             {Object.entries(bs)
                               .filter(([, items]) => items.length > 0)
                               .map(([cat, items]) => {
                                 const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
-                                return items.map((item) => (
-                                  <span
-                                    key={`${cat}-${item}`}
-                                    className={`text-xs px-2 py-0.5 rounded border ${meta.color}`}
-                                    title={meta.label}
-                                  >
-                                    {item}
-                                  </span>
-                                ));
+                                return (
+                                  <div key={cat} className="flex items-start gap-1.5">
+                                    <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${meta.color}`}>
+                                      {meta.label}
+                                    </span>
+                                    <div className="flex flex-wrap gap-1">
+                                      {items.map((item) => (
+                                        <span
+                                          key={`${cat}-${item}`}
+                                          className={`text-xs px-2 py-0.5 rounded border ${meta.color}`}
+                                        >
+                                          {item}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
                               })}
                           </div>
                         </div>
@@ -1111,17 +1119,26 @@ function FriendlyValue({ field, value, className = '' }) {
       );
       if (entries.length > 0) {
         return (
-          <div className="flex flex-wrap gap-1">
+          <div className="space-y-1">
             {entries.map(([cat, items]) => {
               const meta = BENEFIT_CATEGORY_LABELS[cat] || BENEFIT_CATEGORY_LABELS.other;
-              return items.map((item) => (
-                <span
-                  key={`${cat}-${item}`}
-                  className={`text-xs px-1.5 py-0.5 rounded border ${meta.color}`}
-                >
-                  {item}
-                </span>
-              ));
+              return (
+                <div key={cat} className="flex items-start gap-1.5">
+                  <span className={`text-xs font-semibold px-1.5 py-0.5 rounded shrink-0 ${meta.color}`}>
+                    {meta.label}
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {items.map((item) => (
+                      <span
+                        key={`${cat}-${item}`}
+                        className={`text-xs px-1.5 py-0.5 rounded border ${meta.color}`}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
             })}
           </div>
         );
