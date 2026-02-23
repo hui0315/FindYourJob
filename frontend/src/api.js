@@ -13,9 +13,19 @@ export async function parseJobs(rawText) {
   return res.json();
 }
 
-export async function fetchJobs(sortBy = 'created_at', order = 'desc') {
-  const res = await fetch(`${BASE}/jobs?sort_by=${sortBy}&order=${order}`);
+export async function fetchJobs(sortBy = 'created_at', order = 'desc', cities = []) {
+  let url = `${BASE}/jobs?sort_by=${sortBy}&order=${order}`;
+  if (cities.length > 0) {
+    url += `&cities=${encodeURIComponent(cities.join(','))}`;
+  }
+  const res = await fetch(url);
   if (!res.ok) throw new Error('載入失敗');
+  return res.json();
+}
+
+export async function fetchCities() {
+  const res = await fetch(`${BASE}/cities`);
+  if (!res.ok) return [];
   return res.json();
 }
 

@@ -60,6 +60,7 @@ const EDITABLE_FIELDS = [
   { key: 'salary_type', label: '薪資類型', type: 'select', options: SALARY_TYPE_OPTIONS },
   { key: 'salary_guaranteed_months', label: '保障月數', type: 'number' },
   { key: 'location', label: '工作地點', type: 'text' },
+  { key: 'city', label: '縣市', type: 'text' },
   { key: 'job_type', label: '工作類型', type: 'select', options: JOB_TYPE_OPTIONS },
   { key: 'workload', label: '工作量', type: 'select', options: WORKLOAD_OPTIONS },
   { key: 'description', label: '工作內容', type: 'textarea', rows: 4 },

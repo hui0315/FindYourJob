@@ -196,7 +196,7 @@ function SourceBadge({ fieldKey, fieldMeta }) {
   );
 }
 
-export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany }) {
+export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
 
@@ -209,7 +209,8 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
     }
   }
 
-  if (jobs.length === 0) {
+  // Show empty state only when there are truly no jobs AND no city filters to show
+  if (jobs.length === 0 && (!allCities || allCities.length === 0)) {
     return (
       <div className="text-center py-16 text-gray-400">
         <p className="text-4xl mb-4">📋</p>
@@ -242,6 +243,64 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           </button>
         ))}
       </div>
+
+      {/* City filter */}
+      {allCities && allCities.length > 0 && (
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <span className="text-sm text-gray-500 mr-1">篩選：</span>
+          <button
+            onClick={() => {
+              if (selectedCities.length === allCities.length) {
+                onCityFilterChange([]);
+              } else {
+                onCityFilterChange([...allCities]);
+              }
+            }}
+            className={`px-2 py-1 text-xs rounded border transition-colors ${
+              selectedCities.length === allCities.length
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400'
+            }`}
+          >
+            {selectedCities.length === allCities.length ? '清除全選' : '全選'}
+          </button>
+          {allCities.map((city) => {
+            const checked = selectedCities.includes(city);
+            return (
+              <label
+                key={city}
+                className={`flex items-center gap-1 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
+                  checked
+                    ? 'bg-blue-50 text-blue-700 border-blue-300'
+                    : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => {
+                    if (checked) {
+                      onCityFilterChange(selectedCities.filter((c) => c !== city));
+                    } else {
+                      onCityFilterChange([...selectedCities, city]);
+                    }
+                  }}
+                  className="sr-only"
+                />
+                {city}
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Empty state when filtering results in 0 jobs */}
+      {jobs.length === 0 && (
+        <div className="text-center py-12 text-gray-400">
+          <p className="text-lg">沒有符合篩選條件的職缺</p>
+          <p className="text-sm mt-1">請調整上方縣市篩選</p>
+        </div>
+      )}
 
       {/* Job cards */}
       <div className="space-y-3">
@@ -344,12 +403,12 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                   </p>
                 </div>
 
-                {/* Location */}
+                {/* City */}
                 <div className="shrink-0 w-20 text-center">
                   <p className={`text-sm ${
                     hasMismatch && mismatches.some((m) => m.type === 'location')
                       ? 'text-red-600 font-medium' : 'text-gray-500'
-                  }`}>{job.location || '-'}</p>
+                  }`}>{job.city || '-'}</p>
                 </div>
 
                 {/* Workload */}
@@ -385,7 +444,19 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
               {expanded && (
                 <div className="px-4 pb-4 pt-0 border-t border-gray-100">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-3 text-sm">
-                    {/* New fields */}
+                    {/* Location detail */}
+                    {job.location && (
+                      <div>
+                        <span className="text-gray-400">工作地點：</span>
+                        <span className={
+                          hasMismatch && mismatches.some((m) => m.type === 'location')
+                            ? 'text-red-600 font-medium' : 'text-gray-700'
+                        }>
+                          {job.location}
+                        </span>
+                        <SourceBadge fieldKey="location" fieldMeta={fieldMeta} />
+                      </div>
+                    )}
                     {job.experience_years != null && (
                       <div>
                         <span className="text-gray-400">經驗要求：</span>

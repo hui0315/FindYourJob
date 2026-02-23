@@ -65,6 +65,7 @@ def init_db():
                 salary_type TEXT DEFAULT 'monthly',
                 salary_guaranteed_months INTEGER,
                 location TEXT,
+                city TEXT,
                 job_type TEXT,
                 workload TEXT,
                 description TEXT,
@@ -101,12 +102,17 @@ def init_db():
             "field_metadata": "TEXT",
             "edit_history": "TEXT",
             "company_id": "INTEGER REFERENCES companies(id)",
+            "city": "TEXT",
             "description": "TEXT",
             "status": "TEXT DEFAULT 'not_applied'",
         }
         for col, col_type in migrations.items():
             if col not in existing:
                 conn.execute(f"ALTER TABLE jobs ADD COLUMN {col} {col_type}")
+
+        # Backfill city from location for existing rows
+        if "city" not in existing:
+            _backfill_city(conn)
 
         # Migrate existing databases: add new columns to companies if missing
         existing_company_cols = {
@@ -217,3 +223,16 @@ def _migrate_jobs_to_companies(conn):
             f"UPDATE jobs SET benefits = NULL, benefits_structured = NULL WHERE id IN ({placeholders})",
             job_ids,
         )
+
+
+def _backfill_city(conn):
+    """One-time migration: derive city from location for existing jobs."""
+    from mock_parser import extract_city
+
+    rows = conn.execute(
+        "SELECT id, location, raw_text FROM jobs WHERE city IS NULL AND location IS NOT NULL"
+    ).fetchall()
+    for row in rows:
+        city = extract_city(row["location"], row["raw_text"] or "")
+        if city:
+            conn.execute("UPDATE jobs SET city = ? WHERE id = ?", (city, row["id"]))

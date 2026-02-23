@@ -16,6 +16,7 @@ from extraction_schema import (
     build_user_prompt, extraction_to_jobdata,
     build_company_user_prompt, extraction_to_companydata,
 )
+from mock_parser import extract_city
 from company_normalizer import normalize as normalize_company, invalidate_embedding_cache
 
 app = FastAPI(title="FindYourJob API")
@@ -46,7 +47,7 @@ def normalize_salary_to_monthly(amount: int | None, salary_type: str) -> int | N
 
 JOB_COLUMNS = (
     "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
-    "location, job_type, workload, description, skills, experience_years, "
+    "location, city, job_type, workload, description, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
     "language, source_url, notes, status, priority, mismatches, raw_text, "
     "field_metadata, edit_history"
@@ -56,7 +57,7 @@ UPDATABLE_COLUMNS = {
     "title", "company", "company_id",
     "salary_min", "salary_max", "salary_type",
     "salary_guaranteed_months",
-    "location", "job_type", "workload", "description",
+    "location", "city", "job_type", "workload", "description",
     "skills", "experience_years",
     "education", "remote_type", "work_hours", "leave_policy",
     "benefits", "benefits_structured", "language",
@@ -729,7 +730,7 @@ def _clean_json_text(text: str) -> str:
 
 _TRACKABLE_FIELDS = {
     "title", "company", "salary_min", "salary_max", "salary_type",
-    "salary_guaranteed_months", "location", "job_type", "workload",
+    "salary_guaranteed_months", "location", "city", "job_type", "workload",
     "description", "skills", "experience_years", "education", "remote_type",
     "work_hours", "leave_policy", "benefits", "benefits_structured",
     "language", "source_url", "notes", "status", "priority",
@@ -824,12 +825,12 @@ def _save_jobs_to_db(
             job.edit_history = json.dumps([history_entry], ensure_ascii=False)
 
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 28)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 29)})",
                 (
                     job.title, job.company, job.company_id,
                     job.salary_min, job.salary_max,
                     job.salary_type, job.salary_guaranteed_months,
-                    job.location, job.job_type, job.workload,
+                    job.location, job.city, job.job_type, job.workload,
                     job.description, job.skills, job.experience_years, job.education,
                     job.remote_type, job.work_hours, job.leave_policy,
                     job.benefits, job.benefits_structured,
@@ -912,14 +913,27 @@ def _load_job_with_company(row, conn) -> JobData:
     return job
 
 
+@app.get("/api/cities")
+def list_cities():
+    """Return distinct city values from all jobs (for filter UI)."""
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT city FROM jobs WHERE city IS NOT NULL ORDER BY city"
+        ).fetchall()
+        return [row["city"] for row in rows]
+
+
 @app.get("/api/jobs", response_model=list[JobData])
-def list_jobs(sort_by: str = "created_at", order: str = "desc"):
+def list_jobs(sort_by: str = "created_at", order: str = "desc", cities: str = ""):
     allowed_sort = {
         "created_at", "title", "company", "salary_min", "salary_max",
-        "priority", "experience_years", "education",
+        "priority", "experience_years", "education", "city",
     }
     if order not in ("asc", "desc"):
         order = "desc"
+
+    # Parse city filter
+    city_list = [c.strip() for c in cities.split(",") if c.strip()] if cities else []
 
     # skill_match and status use custom ordering, so sort in Python
     python_sort = sort_by in ("skill_match", "status")
@@ -932,9 +946,16 @@ def list_jobs(sort_by: str = "created_at", order: str = "desc"):
         db_sort = sort_by
 
     with get_db() as conn:
-        rows = conn.execute(
-            f"SELECT * FROM jobs ORDER BY {db_sort} {order}"
-        ).fetchall()
+        if city_list:
+            placeholders = ",".join("?" * len(city_list))
+            rows = conn.execute(
+                f"SELECT * FROM jobs WHERE city IN ({placeholders}) ORDER BY {db_sort} {order}",
+                city_list,
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"SELECT * FROM jobs ORDER BY {db_sort} {order}"
+            ).fetchall()
         jobs = [_load_job_with_company(row, conn) for row in rows]
 
         if sort_by == "skill_match":
@@ -982,6 +1003,10 @@ def update_job(job_id: int, update: JobUpdate):
         row = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="找不到此職缺")
+
+        # Auto-derive city when location changes but city isn't explicitly set
+        if "location" in updates and "city" not in updates:
+            updates["city"] = extract_city(updates["location"])
 
         # If company name changed, use normalizer for smart matching
         if "company" in updates and updates["company"] != row["company"]:
@@ -1043,7 +1068,7 @@ _FIELD_LABELS = {
     "title": "職位名稱", "company": "公司名稱",
     "salary_min": "最低薪資", "salary_max": "最高薪資",
     "salary_type": "薪資類型", "salary_guaranteed_months": "保障月數",
-    "location": "工作地點", "job_type": "工作類型", "workload": "工作量",
+    "location": "工作地點", "city": "縣市", "job_type": "工作類型", "workload": "工作量",
     "description": "工作內容",
     "skills": "技能需求", "experience_years": "經驗年數",
     "education": "學歷要求", "remote_type": "遠端類型",
