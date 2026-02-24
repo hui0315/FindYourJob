@@ -53,7 +53,16 @@ export default function SkillPicker() {
     if (Object.keys(dirty).length === 0) return;
     setSaving(true);
     try {
-      await updateUserSkills(dirty);
+      const result = await updateUserSkills(dirty);
+      // Verify the save actually persisted by checking returned data
+      if (result.skills) {
+        setSkills((prev) =>
+          prev.map((s) => ({
+            ...s,
+            status: result.skills[s.skill] ?? 'none',
+          }))
+        );
+      }
       setDirty({});
     } catch {
       alert('儲存失敗');
