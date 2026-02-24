@@ -147,6 +147,16 @@ def update_profile(profile: UserProfile):
                 profile.preferred_job_types, profile.preferred_remote_types,
             ),
         )
+        # Recalculate mismatches for all existing jobs with updated profile
+        rows = conn.execute("SELECT * FROM jobs").fetchall()
+        for row in rows:
+            job_obj = JobData(**dict(row))
+            mismatches = check_mismatches(job_obj, profile)
+            new_val = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
+            conn.execute(
+                "UPDATE jobs SET mismatches = ? WHERE id = ?",
+                (new_val, row["id"]),
+            )
     return profile
 
 
