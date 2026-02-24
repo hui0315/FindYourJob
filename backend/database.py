@@ -105,6 +105,7 @@ def init_db():
             "city": "TEXT",
             "description": "TEXT",
             "status": "TEXT DEFAULT 'not_applied'",
+            "skill_match": "TEXT",
         }
         for col, col_type in migrations.items():
             if col not in existing:

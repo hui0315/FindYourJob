@@ -23,9 +23,34 @@ const REMOTE_TYPE_OPTIONS = [
   { value: 'remote', label: '遠端' },
 ];
 
+const EDUCATION_LABEL = Object.fromEntries(
+  EDUCATION_OPTIONS.filter((o) => o.value).map((o) => [o.value, o.label])
+);
+const JOB_TYPE_LABEL = Object.fromEntries(
+  JOB_TYPE_OPTIONS.map((o) => [o.value, o.label])
+);
+const REMOTE_TYPE_LABEL = Object.fromEntries(
+  REMOTE_TYPE_OPTIONS.map((o) => [o.value, o.label])
+);
+
 function parseCommaSeparated(str) {
   if (!str) return [];
   return str.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function profileFromApi(data) {
+  return {
+    experience_years: data.experience_years ?? '',
+    education: data.education ?? '',
+    skills: data.skills ?? '',
+    preferred_job_types: parseCommaSeparated(data.preferred_job_types),
+    preferred_remote_types: parseCommaSeparated(data.preferred_remote_types),
+  };
+}
+
+function hasSavedConditions(p) {
+  return p.experience_years !== '' || p.education !== ''
+    || p.preferred_job_types.length > 0 || p.preferred_remote_types.length > 0;
 }
 
 export default function ProfileSettings({ onSaved }) {
@@ -36,19 +61,16 @@ export default function ProfileSettings({ onSaved }) {
     preferred_job_types: [],
     preferred_remote_types: [],
   });
+  const [savedProfile, setSavedProfile] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchProfile().then((data) => {
       if (data) {
-        setProfile({
-          experience_years: data.experience_years ?? '',
-          education: data.education ?? '',
-          skills: data.skills ?? '',
-          preferred_job_types: parseCommaSeparated(data.preferred_job_types),
-          preferred_remote_types: parseCommaSeparated(data.preferred_remote_types),
-        });
+        const p = profileFromApi(data);
+        setProfile(p);
+        setSavedProfile(p);
       }
     });
   }, []);
@@ -83,7 +105,8 @@ export default function ProfileSettings({ onSaved }) {
           ? profile.preferred_remote_types.join(',') : null,
       };
       await updateProfile(payload);
-      setMessage('已儲存');
+      setMessage('已儲存，所有職缺的衝突狀態已重新計算');
+      setSavedProfile({ ...profile });
       onSaved?.();
     } catch {
       setMessage('儲存失敗');
@@ -91,9 +114,6 @@ export default function ProfileSettings({ onSaved }) {
       setSaving(false);
     }
   }
-
-  const hasAnyFilter = profile.experience_years !== '' || profile.education !== ''
-    || profile.preferred_job_types.length > 0 || profile.preferred_remote_types.length > 0;
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -103,6 +123,37 @@ export default function ProfileSettings({ onSaved }) {
       <p className="text-sm text-gray-400 mb-6">
         設定你的硬性條件，系統會在職缺不符合時自動警告
       </p>
+
+      {/* Currently saved conditions summary */}
+      {savedProfile && hasSavedConditions(savedProfile) && (
+        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+          <h3 className="text-sm font-medium text-blue-800 mb-2">
+            目前已儲存的條件
+          </h3>
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700">
+            {savedProfile.experience_years !== '' && (
+              <span>年資：{savedProfile.experience_years} 年</span>
+            )}
+            {savedProfile.education && (
+              <span>學歷：{EDUCATION_LABEL[savedProfile.education] || savedProfile.education}</span>
+            )}
+            {savedProfile.preferred_job_types.length > 0 && (
+              <span>類型：{savedProfile.preferred_job_types.map((v) => JOB_TYPE_LABEL[v] || v).join('、')}</span>
+            )}
+            {savedProfile.preferred_remote_types.length > 0 && (
+              <span>遠端：{savedProfile.preferred_remote_types.map((v) => REMOTE_TYPE_LABEL[v] || v).join('、')}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {savedProfile && !hasSavedConditions(savedProfile) && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+          <p className="text-sm text-yellow-700">
+            尚未儲存任何條件。設定下方欄位後點擊「儲存條件」。
+          </p>
+        </div>
+      )}
 
       <div className="space-y-5">
         {/* Experience */}
@@ -216,18 +267,12 @@ export default function ProfileSettings({ onSaved }) {
           {saving ? '儲存中...' : '儲存條件'}
         </button>
         {message && (
-          <span className={`text-sm ${message === '已儲存' ? 'text-green-600' : 'text-red-500'}`}>
+          <span className={`text-sm ${message.startsWith('已儲存') ? 'text-green-600' : 'text-red-500'}`}>
             {message}
           </span>
         )}
       </div>
 
-      {!hasAnyFilter && (
-        <p className="mt-4 text-sm text-yellow-600 bg-yellow-50 border border-yellow-200
-                      rounded-lg px-4 py-3">
-          尚未設定任何硬性條件。設定後，系統會在新增職缺時自動檢查是否符合你的條件。
-        </p>
-      )}
 
       {/* Skill picker - grown from job data */}
       <hr className="my-8 border-gray-200" />

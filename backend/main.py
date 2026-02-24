@@ -49,7 +49,7 @@ JOB_COLUMNS = (
     "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
     "location, city, job_type, workload, description, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
-    "language, source_url, notes, status, priority, mismatches, raw_text, "
+    "language, source_url, notes, status, priority, mismatches, skill_match, raw_text, "
     "field_metadata, edit_history"
 )
 
@@ -147,6 +147,16 @@ def update_profile(profile: UserProfile):
                 profile.preferred_job_types, profile.preferred_remote_types,
             ),
         )
+        # Recalculate mismatches for all existing jobs with updated profile
+        rows = conn.execute("SELECT * FROM jobs").fetchall()
+        for row in rows:
+            job_obj = JobData(**dict(row))
+            mismatches = check_mismatches(job_obj, profile)
+            new_val = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
+            conn.execute(
+                "UPDATE jobs SET mismatches = ? WHERE id = ?",
+                (new_val, row["id"]),
+            )
     return profile
 
 
@@ -267,7 +277,23 @@ def update_user_skills(updates: dict[str, str]):
                     "INSERT OR REPLACE INTO user_skills (skill, status) VALUES (?, ?)",
                     (skill, status),
                 )
-    return {"message": "已更新"}
+        # Recalculate and persist skill_match for all jobs
+        rows = conn.execute("SELECT * FROM jobs").fetchall()
+        for row in rows:
+            job_obj = JobData(**dict(row))
+            match = calc_skill_match(job_obj, conn)
+            new_val = json.dumps(match, ensure_ascii=False) if match else None
+            conn.execute(
+                "UPDATE jobs SET skill_match = ? WHERE id = ?",
+                (new_val, row["id"]),
+            )
+        # Return the actual saved state for verification
+        saved = conn.execute("SELECT skill, status FROM user_skills").fetchall()
+        return {
+            "message": "已更新",
+            "saved_count": len(saved),
+            "skills": {r["skill"]: r["status"] for r in saved},
+        }
 
 
 def calc_skill_match(job: JobData, conn) -> dict | None:
@@ -817,8 +843,13 @@ def _save_jobs_to_db(
             }
             job.edit_history = json.dumps([history_entry], ensure_ascii=False)
 
+            # Calculate skill match before INSERT so it's persisted
+            match = calc_skill_match(job, conn)
+            if match:
+                job.skill_match = json.dumps(match, ensure_ascii=False)
+
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 29)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 30)})",
                 (
                     job.title, job.company, job.company_id,
                     job.salary_min, job.salary_max,
@@ -829,14 +860,11 @@ def _save_jobs_to_db(
                     job.benefits, job.benefits_structured,
                     job.language, job.source_url, job.notes,
                     job.status, job.priority,
-                    job.mismatches, job.raw_text,
+                    job.mismatches, job.skill_match, job.raw_text,
                     job.field_metadata, job.edit_history,
                 ),
             )
             job.id = cursor.lastrowid
-            match = calc_skill_match(job, conn)
-            if match:
-                job.skill_match = json.dumps(match, ensure_ascii=False)
 
             # Attach company data for response
             c_row = conn.execute(
@@ -1033,13 +1061,15 @@ def update_job(job_id: int, update: JobUpdate):
         updates["field_metadata"] = json.dumps(existing_meta, ensure_ascii=False)
         updates["edit_history"] = json.dumps(existing_history, ensure_ascii=False)
 
-        # Recalculate mismatches
+        # Recalculate mismatches and skill_match
         job_data = dict(row)
         job_data.update(updates)
         job_obj = JobData(**{k: job_data[k] for k in JobData.model_fields if k in job_data})
         profile = _get_profile(conn)
         mismatches = check_mismatches(job_obj, profile)
         updates["mismatches"] = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
+        match = calc_skill_match(job_obj, conn)
+        updates["skill_match"] = json.dumps(match, ensure_ascii=False) if match else None
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [job_id]
@@ -1203,13 +1233,15 @@ def supplement_job(job_id: int, req: SupplementRequest):
         updates["field_metadata"] = json.dumps(existing_meta, ensure_ascii=False)
         updates["edit_history"] = json.dumps(existing_history, ensure_ascii=False)
 
-        # Recalculate mismatches
+        # Recalculate mismatches and skill_match
         merged = dict(existing)
         merged.update(updates)
         job_obj = JobData(**{k: merged[k] for k in JobData.model_fields if k in merged})
         profile = _get_profile(conn)
         mismatches = check_mismatches(job_obj, profile)
         updates["mismatches"] = json.dumps(mismatches, ensure_ascii=False) if mismatches else None
+        match = calc_skill_match(job_obj, conn)
+        updates["skill_match"] = json.dumps(match, ensure_ascii=False) if match else None
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [job_id]
