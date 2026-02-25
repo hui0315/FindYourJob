@@ -117,20 +117,20 @@ export default function ProfileSettings({ onSaved }) {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <h2 className="text-lg font-semibold text-gray-700 mb-1">
+      <h2 className="text-lg font-semibold text-surface-700 mb-1">
         我的條件
       </h2>
-      <p className="text-sm text-gray-400 mb-6">
+      <p className="text-sm text-surface-400 mb-6">
         設定你的硬性條件，系統會在職缺不符合時自動警告
       </p>
 
       {/* Currently saved conditions summary */}
       {savedProfile && hasSavedConditions(savedProfile) && (
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">
+        <div className="mb-6 bg-primary-50 border border-primary-200 rounded-lg px-4 py-3">
           <h3 className="text-sm font-medium text-blue-800 mb-2">
             目前已儲存的條件
           </h3>
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-blue-700">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-primary-700">
             {savedProfile.experience_years !== '' && (
               <span>年資：{savedProfile.experience_years} 年</span>
             )}
@@ -155,10 +155,10 @@ export default function ProfileSettings({ onSaved }) {
         </div>
       )}
 
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Experience */}
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
+          <label className="block text-sm font-medium text-surface-600 mb-1">
             工作年資
           </label>
           <div className="flex items-center gap-2">
@@ -166,26 +166,26 @@ export default function ProfileSettings({ onSaved }) {
               type="number"
               min="0"
               max="50"
-              className="w-24 px-3 py-2 border border-gray-300 rounded-lg
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                         bg-white text-gray-800"
+              className="w-24 px-3 py-2 border border-surface-300 rounded-lg
+                         focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                         bg-white text-surface-800"
               placeholder="例: 3"
               value={profile.experience_years}
               onChange={(e) => handleChange('experience_years', e.target.value)}
             />
-            <span className="text-sm text-gray-500">年</span>
+            <span className="text-sm text-surface-500">年</span>
           </div>
         </div>
 
         {/* Education */}
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
+          <label className="block text-sm font-medium text-surface-600 mb-1">
             最高學歷
           </label>
           <select
-            className="w-48 px-3 py-2 border border-gray-300 rounded-lg
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       bg-white text-gray-800"
+            className="w-48 px-3 py-2 border border-surface-300 rounded-lg
+                       focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                       bg-white text-surface-800"
             value={profile.education}
             onChange={(e) => handleChange('education', e.target.value)}
           >
@@ -197,7 +197,7 @@ export default function ProfileSettings({ onSaved }) {
 
         {/* Job Type — multi-select checkboxes */}
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
+          <label className="block text-sm font-medium text-surface-600 mb-2">
             工作類型（可複選）
           </label>
           <div className="flex flex-wrap gap-3">
@@ -209,14 +209,14 @@ export default function ProfileSettings({ onSaved }) {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
                              transition-colors select-none text-sm
                              ${checked
-                               ? 'bg-blue-50 border-blue-400 text-blue-800'
-                               : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'}`}
+                               ? 'bg-primary-50 border-blue-400 text-blue-800'
+                               : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleCheckbox('preferred_job_types', opt.value)}
-                    className="accent-blue-600"
+                    className="accent-primary-600"
                   />
                   {opt.label}
                 </label>
@@ -227,7 +227,7 @@ export default function ProfileSettings({ onSaved }) {
 
         {/* Remote Type — multi-select checkboxes */}
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-2">
+          <label className="block text-sm font-medium text-surface-600 mb-2">
             遠端偏好（可複選）
           </label>
           <div className="flex flex-wrap gap-3">
@@ -239,14 +239,14 @@ export default function ProfileSettings({ onSaved }) {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
                              transition-colors select-none text-sm
                              ${checked
-                               ? 'bg-blue-50 border-blue-400 text-blue-800'
-                               : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'}`}
+                               ? 'bg-primary-50 border-blue-400 text-blue-800'
+                               : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}
                 >
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={() => toggleCheckbox('preferred_remote_types', opt.value)}
-                    className="accent-blue-600"
+                    className="accent-primary-600"
                   />
                   {opt.label}
                 </label>
@@ -261,8 +261,8 @@ export default function ProfileSettings({ onSaved }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium
-                     hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="px-6 py-2.5 bg-primary-600 text-white rounded-lg font-medium
+                     hover:bg-primary-700 disabled:opacity-50 transition-colors"
         >
           {saving ? '儲存中...' : '儲存條件'}
         </button>
@@ -275,7 +275,7 @@ export default function ProfileSettings({ onSaved }) {
 
 
       {/* Skill picker - grown from job data */}
-      <hr className="my-8 border-gray-200" />
+      <hr className="my-8 border-surface-200" />
       <SkillPicker />
     </div>
   );

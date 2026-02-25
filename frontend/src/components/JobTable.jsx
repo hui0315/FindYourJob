@@ -1,12 +1,16 @@
 import { useState } from 'react';
+import {
+  Clock, DollarSign, ClipboardList, Star, Zap,
+  ChevronUp, ChevronDown, ClipboardX, Pencil, Trash2, History, X, AlertTriangle,
+} from 'lucide-react';
 import JobEditModal from './JobEditModal';
 
 const SORT_OPTIONS = [
-  { key: 'created_at', label: '加入時間', icon: '⏱' },
-  { key: 'salary_max', label: '薪資', icon: '$' },
-  { key: 'status', label: '投遞狀態', icon: '📋' },
-  { key: 'priority', label: '優先順序', icon: '★' },
-  { key: 'skill_match', label: '匹配度', icon: '⚡' },
+  { key: 'created_at', label: '加入時間', icon: Clock },
+  { key: 'salary_max', label: '薪資', icon: DollarSign },
+  { key: 'status', label: '投遞狀態', icon: ClipboardList },
+  { key: 'priority', label: '優先順序', icon: Star },
+  { key: 'skill_match', label: '匹配度', icon: Zap },
 ];
 
 const SALARY_TYPE_LABELS = {
@@ -46,9 +50,9 @@ const REMOTE_LABELS = {
 const PRIORITY_LABELS = {
   1: { text: '最高', color: 'bg-red-500 text-white' },
   2: { text: '高', color: 'bg-orange-400 text-white' },
-  3: { text: '中', color: 'bg-yellow-400 text-gray-800' },
+  3: { text: '中', color: 'bg-yellow-400 text-surface-800' },
   4: { text: '低', color: 'bg-blue-200 text-blue-800' },
-  5: { text: '最低', color: 'bg-gray-200 text-gray-600' },
+  5: { text: '最低', color: 'bg-surface-200 text-surface-600' },
 };
 
 const STATUS_LABELS = {
@@ -56,7 +60,7 @@ const STATUS_LABELS = {
   applied:      { text: '已投遞',       color: 'bg-blue-100 text-blue-700 border-blue-300' },
   interviewing: { text: '面試中',       color: 'bg-orange-100 text-orange-700 border-orange-300' },
   offered:      { text: '已取得 Offer', color: 'bg-green-100 text-green-700 border-green-300' },
-  rejected:     { text: '未錄取',       color: 'bg-gray-100 text-gray-400 border-gray-300' },
+  rejected:     { text: '未錄取',       color: 'bg-surface-100 text-surface-400 border-surface-300' },
 };
 
 function formatSalary(min, max, type, guaranteedMonths) {
@@ -77,7 +81,7 @@ const BENEFIT_CATEGORY_LABELS = {
   leave: { label: '休假', color: 'bg-green-50 text-green-700 border-green-200' },
   subsidy: { label: '補助', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   system: { label: '制度', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  other: { label: '其他', color: 'bg-gray-50 text-gray-600 border-gray-200' },
+  other: { label: '其他', color: 'bg-surface-50 text-surface-600 border-surface-200' },
 };
 
 function parseBenefitsStructured(benefitsStructured) {
@@ -168,10 +172,10 @@ function matchScoreColor(score) {
 }
 
 const SOURCE_BADGE_STYLES = {
-  user: 'bg-gray-100 text-gray-400',
-  import: 'bg-gray-100 text-gray-400',
-  llm: 'bg-gray-100 text-gray-400',
-  regex: 'bg-gray-100 text-gray-400',
+  user: 'bg-surface-100 text-surface-400',
+  import: 'bg-surface-100 text-surface-400',
+  llm: 'bg-surface-100 text-surface-400',
+  regex: 'bg-surface-100 text-surface-400',
 };
 
 const SOURCE_BADGE_LABELS = {
@@ -264,8 +268,8 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
   // Show empty state only when there are truly no jobs AND no city filters to show
   if (jobs.length === 0 && (!allCities || allCities.length === 0)) {
     return (
-      <div className="text-center py-16 text-gray-400">
-        <p className="text-4xl mb-4">📋</p>
+      <div className="text-center py-16 text-surface-400">
+        <ClipboardX size={48} className="mx-auto mb-4 text-surface-300" strokeWidth={1.5} />
         <p className="text-lg">尚無職缺資料</p>
         <p className="text-sm mt-1">在上方貼上職缺資訊並送出解析</p>
       </div>
@@ -275,36 +279,41 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
   return (
     <div className="w-full">
       {/* Sort controls */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <span className="text-sm text-gray-500 mr-1">排序：</span>
-        {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => handleSort(opt.key)}
-            className={`px-3 py-1.5 text-sm rounded-full border transition-colors
-              ${sortBy === opt.key
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-              }`}
-          >
-            <span className="mr-1">{opt.icon}</span>
-            {opt.label}
-            {sortBy === opt.key && (
-              <span className="ml-1">{order === 'asc' ? '↑' : '↓'}</span>
-            )}
-          </button>
-        ))}
+      <div className="flex items-center gap-2.5 mb-5 flex-wrap">
+        <span className="text-sm text-surface-500 mr-1">排序：</span>
+        {SORT_OPTIONS.map((opt) => {
+          const Icon = opt.icon;
+          return (
+            <button
+              key={opt.key}
+              onClick={() => handleSort(opt.key)}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-sm rounded-full border transition-all duration-150
+                ${sortBy === opt.key
+                  ? 'bg-primary-600 text-white border-primary-600 shadow-sm'
+                  : 'bg-white text-surface-600 border-surface-300 hover:border-primary-300 hover:bg-primary-50'
+                }`}
+            >
+              <Icon size={14} />
+              {opt.label}
+              {sortBy === opt.key && (
+                <span className="ml-0.5">
+                  {order === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {/* City filter */}
       {allCities && allCities.length > 0 && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
-          <span className="text-sm text-gray-500 mr-1">篩選：</span>
+        <div className="flex items-center gap-2.5 mb-5 flex-wrap">
+          <span className="text-sm text-surface-500 mr-1">篩選：</span>
           {/* Select-all checkbox */}
           <label className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
             selectedCities.length === allCities.length
-              ? 'bg-blue-100 text-blue-700 border-blue-400 font-medium'
-              : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400'
+              ? 'bg-primary-100 text-primary-700 border-primary-400 font-medium'
+              : 'bg-white text-surface-500 border-surface-300 hover:border-primary-400'
           }`}>
             <input
               type="checkbox"
@@ -312,11 +321,11 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
               onChange={(e) => {
                 onCityFilterChange(e.target.checked ? [...allCities] : []);
               }}
-              className="accent-blue-600 w-3.5 h-3.5"
+              className="accent-primary-600 w-3.5 h-3.5"
             />
             全選
           </label>
-          <span className="text-gray-300">|</span>
+          <span className="text-surface-300">|</span>
           {allCities.map((city) => {
             const checked = selectedCities.includes(city);
             return (
@@ -324,8 +333,8 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 key={city}
                 className={`flex items-center gap-1.5 px-2 py-1 text-sm rounded border cursor-pointer transition-colors ${
                   checked
-                    ? 'bg-blue-50 text-blue-700 border-blue-300'
-                    : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                    ? 'bg-primary-50 text-primary-700 border-primary-300'
+                    : 'bg-white text-surface-400 border-surface-200 hover:border-surface-300'
                 }`}
               >
                 <input
@@ -338,7 +347,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       onCityFilterChange([...selectedCities, city]);
                     }
                   }}
-                  className="accent-blue-600 w-3.5 h-3.5"
+                  className="accent-primary-600 w-3.5 h-3.5"
                 />
                 {city}
               </label>
@@ -349,14 +358,14 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
 
       {/* Empty state when filtering results in 0 jobs */}
       {jobs.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-surface-400">
           <p className="text-lg">沒有符合篩選條件的職缺</p>
           <p className="text-sm mt-1">請調整上方縣市篩選</p>
         </div>
       )}
 
       {/* Job cards */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {jobs.map((job) => {
           const expanded = expandedId === job.id;
           const priority = PRIORITY_LABELS[job.priority] || PRIORITY_LABELS[3];
@@ -370,17 +379,18 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
           return (
             <div
               key={job.id}
-              className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow
+              className={`bg-white rounded-xl shadow-card hover:shadow-card-hover
+                transition-all duration-200 hover:-translate-y-0.5
                 ${hasMismatch
                   ? 'border-2 border-red-300'
-                  : 'border border-gray-200'
+                  : 'border border-surface-200/80'
                 }${job.status === 'rejected' ? ' opacity-50' : ''}`}
             >
               {/* Mismatch banner */}
               {hasMismatch && (
                 <div className="px-4 py-2 bg-red-50 rounded-t-xl border-b border-red-200
                                 flex items-start gap-2">
-                  <span className="text-red-500 font-bold text-sm shrink-0 mt-0.5">!</span>
+                  <AlertTriangle size={16} className="text-red-500 shrink-0 mt-0.5" />
                   <div className="text-sm text-red-600">
                     {mismatches.map((item, i) => (
                       <span key={i}>
@@ -393,7 +403,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
 
               {/* Main row */}
               <div
-                className="p-4 flex items-center gap-4 cursor-pointer"
+                className="p-5 flex items-center gap-4 cursor-pointer"
                 onClick={() => setExpandedId(expanded ? null : job.id)}
               >
                 {/* Priority badge */}
@@ -406,7 +416,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className={`font-semibold truncate ${
-                      hasMismatch ? 'text-red-700' : 'text-gray-800'
+                      hasMismatch ? 'text-red-700' : 'text-surface-800'
                     }`}>
                       {job.title}
                     </h3>
@@ -414,7 +424,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       <span className={`text-xs px-2 py-0.5 rounded ${
                         hasMismatch && mismatches.some((m) => m.type === 'job_type')
                           ? 'bg-red-50 text-red-600 border border-red-200'
-                          : 'bg-blue-50 text-blue-600'
+                          : 'bg-primary-50 text-primary-600'
                       }`}>
                         {JOB_TYPE_LABELS[job.job_type] || job.job_type}
                       </span>
@@ -437,10 +447,10 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       );
                     })()}
                   </div>
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className="text-sm text-surface-500 truncate">
                     {job.company_data ? (
                       <button
-                        className="hover:text-blue-600 hover:underline transition-colors"
+                        className="hover:text-primary-600 hover:underline transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (onViewCompany) onViewCompany(job.company_id);
@@ -463,7 +473,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
 
                 {/* City */}
                 <div className="shrink-0 w-20 text-center">
-                  <p className="text-sm text-gray-500">{job.city || '-'}</p>
+                  <p className="text-sm text-surface-500">{job.city || '-'}</p>
                 </div>
 
                 {/* Workload */}
@@ -473,7 +483,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       {workload.text}
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-300">-</span>
+                    <span className="text-xs text-surface-300">-</span>
                   )}
                 </div>
 
@@ -485,25 +495,25 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       {skillMatch.score}%
                     </span>
                   ) : (
-                    <span className="text-xs text-gray-300">-</span>
+                    <span className="text-xs text-surface-300">-</span>
                   )}
                 </div>
 
                 {/* Expand icon */}
-                <span className="shrink-0 text-gray-400 text-sm">
-                  {expanded ? '▲' : '▼'}
+                <span className="shrink-0 text-surface-400">
+                  {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </span>
               </div>
 
               {/* Expanded detail */}
               {expanded && (
-                <div className="px-4 pb-4 pt-0 border-t border-gray-100">
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-2 mt-3 text-sm">
+                <div className="px-5 pb-5 pt-0 border-t border-surface-100">
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-3 mt-3 text-sm">
                     {/* Location detail */}
                     {job.location && (
                       <div>
-                        <span className="text-gray-400">工作地點：</span>
-                        <span className="text-gray-700">
+                        <span className="text-surface-400">工作地點：</span>
+                        <span className="text-surface-700">
                           {job.location}
                         </span>
                         <SourceBadge fieldKey="location" fieldMeta={fieldMeta} />
@@ -511,10 +521,10 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     )}
                     {job.experience_years != null && (
                       <div>
-                        <span className="text-gray-400">經驗要求：</span>
+                        <span className="text-surface-400">經驗要求：</span>
                         <span className={
                           hasMismatch && mismatches.some((m) => m.type === 'experience')
-                            ? 'text-red-600 font-medium' : 'text-gray-700'
+                            ? 'text-red-600 font-medium' : 'text-surface-700'
                         }>
                           {job.experience_years === 0 ? '不拘' : `${job.experience_years} 年以上`}
                         </span>
@@ -523,10 +533,10 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     )}
                     {job.education && (
                       <div>
-                        <span className="text-gray-400">學歷要求：</span>
+                        <span className="text-surface-400">學歷要求：</span>
                         <span className={
                           hasMismatch && mismatches.some((m) => m.type === 'education')
-                            ? 'text-red-600 font-medium' : 'text-gray-700'
+                            ? 'text-red-600 font-medium' : 'text-surface-700'
                         }>
                           {EDUCATION_LABELS[job.education] || job.education}
                         </span>
@@ -535,17 +545,17 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     )}
                     {job.work_hours && (
                       <div>
-                        <span className="text-gray-400">上班時間：</span>
-                        <span className="text-gray-700">{job.work_hours}</span>
+                        <span className="text-surface-400">上班時間：</span>
+                        <span className="text-surface-700">{job.work_hours}</span>
                         <SourceBadge fieldKey="work_hours" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.remote_type && (
                       <div>
-                        <span className="text-gray-400">遠端類型：</span>
+                        <span className="text-surface-400">遠端類型：</span>
                         <span className={
                           hasMismatch && mismatches.some((m) => m.type === 'remote_type')
-                            ? 'text-red-600 font-medium' : 'text-gray-700'
+                            ? 'text-red-600 font-medium' : 'text-surface-700'
                         }>
                           {REMOTE_LABELS[job.remote_type] || job.remote_type}
                         </span>
@@ -554,9 +564,9 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     )}
                     {job.skills && (
                       <div className="col-span-2">
-                        <span className="text-gray-400">技能需求：</span>
+                        <span className="text-surface-400">技能需求：</span>
                         {skillMatch ? (
-                          <span className="text-gray-700">
+                          <span className="text-surface-700">
                             {skillMatch.known.length > 0 && (
                               <span>
                                 {skillMatch.known.map((s, i) => (
@@ -580,48 +590,48 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                             {skillMatch.missing.length > 0 && (
                               <span>
                                 {skillMatch.missing.map((s, i) => (
-                                  <span key={s} className="text-gray-400">
+                                  <span key={s} className="text-surface-400">
                                     {s}{i < skillMatch.missing.length - 1 ? ', ' : ''}
                                   </span>
                                 ))}
                               </span>
                             )}
-                            <span className="text-xs text-gray-400 ml-2">
+                            <span className="text-xs text-surface-400 ml-2">
                               ({skillMatch.score}% 匹配)
                             </span>
                           </span>
                         ) : (
-                          <span className="text-gray-700">{job.skills}</span>
+                          <span className="text-surface-700">{job.skills}</span>
                         )}
                       </div>
                     )}
                     {job.description && (
                       <div className="col-span-2">
-                        <span className="text-gray-400">工作內容：</span>
+                        <span className="text-surface-400">工作內容：</span>
                         <SourceBadge fieldKey="description" fieldMeta={fieldMeta} />
-                        <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
+                        <div className="mt-1 text-sm text-surface-700 whitespace-pre-wrap">
                           {job.description}
                         </div>
                       </div>
                     )}
                     {job.salary_guaranteed_months && (
                       <div>
-                        <span className="text-gray-400">保障年薪：</span>
+                        <span className="text-surface-400">保障年薪：</span>
                         <span className="text-green-700 font-medium">{job.salary_guaranteed_months} 個月</span>
                         <SourceBadge fieldKey="salary_guaranteed_months" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.leave_policy && (
                       <div>
-                        <span className="text-gray-400">休假制度：</span>
-                        <span className="text-gray-700">{job.leave_policy}</span>
+                        <span className="text-surface-400">休假制度：</span>
+                        <span className="text-surface-700">{job.leave_policy}</span>
                         <SourceBadge fieldKey="leave_policy" fieldMeta={fieldMeta} />
                       </div>
                     )}
                     {job.language && (
                       <div>
-                        <span className="text-gray-400">語文條件：</span>
-                        <span className="text-gray-700">{job.language}</span>
+                        <span className="text-surface-400">語文條件：</span>
+                        <span className="text-surface-700">{job.language}</span>
                         <SourceBadge fieldKey="language" fieldMeta={fieldMeta} />
                       </div>
                     )}
@@ -633,7 +643,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         return (
                           <div className="col-span-2">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-gray-400">福利制度：</span>
+                              <span className="text-surface-400">福利制度：</span>
                               {benefitsMerged.hasCompany && (
                                 <span className="text-[10px] px-1.5 py-0.5 bg-blue-50 text-blue-500 rounded">
                                   公司福利
@@ -685,8 +695,8 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                       if (texts.length > 0) {
                         return (
                           <div className="col-span-2">
-                            <span className="text-gray-400">福利：</span>
-                            <span className="text-gray-700">{texts.join('；')}</span>
+                            <span className="text-surface-400">福利：</span>
+                            <span className="text-surface-700">{texts.join('；')}</span>
                           </div>
                         );
                       }
@@ -696,8 +706,8 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     {/* Company contact info (from company_data) */}
                     {job.company_data && (job.company_data.contact_name || job.company_data.contact_email || job.company_data.contact_phone) && (
                       <div className="col-span-2">
-                        <span className="text-gray-400">公司聯絡：</span>
-                        <span className="text-gray-700">
+                        <span className="text-surface-400">公司聯絡：</span>
+                        <span className="text-surface-700">
                           {[
                             job.company_data.contact_name &&
                               `${job.company_data.contact_name}${job.company_data.contact_title ? ` (${job.company_data.contact_title})` : ''}`,
@@ -710,12 +720,12 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
 
                     {job.source_url && (
                       <div className="col-span-2">
-                        <span className="text-gray-400">來源：</span>
+                        <span className="text-surface-400">來源：</span>
                         <a
                           href={job.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline"
+                          className="text-primary-500 hover:underline"
                         >
                           {job.source_url}
                         </a>
@@ -723,31 +733,33 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                     )}
                     {job.notes && (
                       <div className="col-span-2">
-                        <span className="text-gray-400">備註：</span>
-                        <span className="text-gray-700">{job.notes}</span>
+                        <span className="text-surface-400">備註：</span>
+                        <span className="text-surface-700">{job.notes}</span>
                       </div>
                     )}
                     {job.raw_text && (
                       <details className="col-span-2 mt-2">
-                        <summary className="text-gray-400 cursor-pointer hover:text-gray-600">
+                        <summary className="text-surface-400 cursor-pointer hover:text-surface-600">
                           原始文字
                         </summary>
-                        <pre className="mt-1 p-3 bg-gray-50 rounded text-xs text-gray-600
+                        <pre className="mt-1 p-3 bg-surface-50 rounded text-xs text-surface-600
                                         whitespace-pre-wrap overflow-x-auto max-h-40">
                           {job.raw_text}
                         </pre>
                       </details>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-3">
+                  <div className="flex items-center gap-3 mt-4">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingJob(job);
                       }}
-                      className="px-3 py-1 text-sm text-blue-600 border border-blue-200
-                                 rounded hover:bg-blue-50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm text-primary-600
+                                 border border-primary-200 rounded-lg hover:bg-primary-50
+                                 transition-all duration-150"
                     >
+                      <Pencil size={13} />
                       編輯
                     </button>
                     <button
@@ -755,9 +767,11 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         e.stopPropagation();
                         onDelete(job.id);
                       }}
-                      className="px-3 py-1 text-sm text-red-500 border border-red-200
-                                 rounded hover:bg-red-50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1 text-sm text-red-500
+                                 border border-red-200 rounded-lg hover:bg-red-50
+                                 transition-all duration-150"
                     >
+                      <Trash2 size={13} />
                       刪除
                     </button>
                     {/* History button — right-aligned */}
@@ -772,9 +786,9 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                             setHistoryJob(job);
                           }}
                           className="ml-auto flex items-center gap-1.5 px-2 py-1 text-xs
-                                     text-gray-400 hover:text-gray-600 transition-colors"
+                                     text-surface-400 hover:text-surface-600 transition-colors"
                         >
-                          <span>&#x1f4dd;</span>
+                          <History size={13} />
                           <span>{shortTimestamp(lastEntry.timestamp)}</span>
                         </button>
                       );
@@ -788,7 +802,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
       </div>
 
       {/* Footer stats */}
-      <div className="mt-4 text-sm text-gray-400 text-center">
+      <div className="mt-4 text-sm text-surface-400 text-center">
         共 {jobs.length} 筆職缺
         {jobs.some((j) => j.mismatches && JSON.parse(j.mismatches).length > 0) && (
           <span className="text-red-400 ml-2">
@@ -815,22 +829,22 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
       {/* History Popup */}
       {historyJob && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
           onClick={() => setHistoryJob(null)}
         >
           <div
-            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4"
+            className="bg-white rounded-xl shadow-card-active w-full max-w-md mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200">
-              <h3 className="text-sm font-semibold text-gray-800">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-surface-200">
+              <h3 className="text-sm font-semibold text-surface-800">
                 編輯紀錄 — {historyJob.title}
               </h3>
               <button
                 onClick={() => setHistoryJob(null)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
+                className="text-surface-400 hover:text-surface-600 transition-colors"
               >
-                x
+                <X size={20} />
               </button>
             </div>
             <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
@@ -838,7 +852,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 const history = parseEditHistory(historyJob);
                 if (history.length === 0) {
                   return (
-                    <p className="text-sm text-gray-400 text-center py-6">
+                    <p className="text-sm text-surface-400 text-center py-6">
                       尚無編輯紀錄
                     </p>
                   );
@@ -846,7 +860,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 return (
                   <div className="space-y-3">
                     {[...history].reverse().map((entry, i) => (
-                      <div key={i} className="border border-gray-200 rounded-lg p-3">
+                      <div key={i} className="border border-surface-200 rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-1.5">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium
                             ${entry.source === 'user'
@@ -857,10 +871,10 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                             }`}>
                             {HISTORY_SOURCE_LABELS[entry.source] || entry.source}
                           </span>
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-surface-500">
                             {HISTORY_ACTION_LABELS[entry.action] || entry.action}
                           </span>
-                          <span className="text-xs text-gray-400 ml-auto">
+                          <span className="text-xs text-surface-400 ml-auto">
                             {formatTimestamp(entry.timestamp)}
                           </span>
                         </div>
@@ -869,7 +883,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                             {entry.fields_updated.map((f) => (
                               <span
                                 key={f}
-                                className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                                className="text-xs px-1.5 py-0.5 bg-surface-100 text-surface-600 rounded"
                               >
                                 {HISTORY_FIELD_LABELS[f] || f}
                               </span>

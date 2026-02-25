@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { User, PenLine, LayoutList, Building2 } from 'lucide-react';
 import JobInput from './components/JobInput';
 import JobTable from './components/JobTable';
 import ProfileSettings from './components/ProfileSettings';
@@ -97,60 +98,66 @@ export default function App() {
   }
 
   const NAV_ITEMS = [
-    { key: 'profile', label: '我的條件' },
-    { key: 'input', label: '輸入職缺' },
-    { key: 'table', label: '整理檢視', badge: jobs.length || null },
-    { key: 'companies', label: '公司管理' },
+    { key: 'profile', label: '我的條件', icon: User },
+    { key: 'input', label: '輸入職缺', icon: PenLine },
+    { key: 'table', label: '整理檢視', icon: LayoutList, badge: jobs.length || null },
+    { key: 'companies', label: '公司管理', icon: Building2 },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <header className="bg-white/80 backdrop-blur-xl border-b border-surface-200/60 sticky top-0 z-10 shadow-header">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-gray-800">
+            <h1 className="text-xl font-bold text-surface-800 tracking-tight">
               FindYourJob
             </h1>
             {status && (
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                 status.ollama_available
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-yellow-100 text-yellow-700'
+                  ? 'bg-green-50 text-green-600 border border-green-200'
+                  : 'bg-amber-50 text-amber-600 border border-amber-200'
               }`}>
                 {status.ollama_available ? `LLM: ${status.model}` : 'Regex 模式'}
               </span>
             )}
           </div>
-          <nav className="flex gap-1">
-            {NAV_ITEMS.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => {
-                  setView(item.key);
-                  if (item.key === 'table') loadJobs();
-                }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${view === item.key
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-              >
-                {item.label}
-                {item.badge && (
-                  <span className="ml-1.5 bg-blue-500 text-white text-xs
-                                    px-1.5 py-0.5 rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
+          <nav className="flex gap-1 bg-surface-100 rounded-xl p-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = view === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => {
+                    setView(item.key);
+                    if (item.key === 'table') loadJobs();
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm
+                              font-medium transition-all duration-200
+                    ${isActive
+                      ? 'bg-white text-primary-700 shadow-sm'
+                      : 'text-surface-500 hover:text-surface-700 hover:bg-white/50'
+                    }`}
+                >
+                  <Icon size={16} strokeWidth={isActive ? 2.25 : 1.75} />
+                  {item.label}
+                  {item.badge && (
+                    <span className="bg-primary-100 text-primary-700 text-xs
+                                      px-1.5 py-0.5 rounded-full font-medium">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </nav>
         </div>
       </header>
 
       {/* Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-10">
         {view === 'profile' && (
           <ProfileSettings />
         )}
@@ -165,8 +172,8 @@ export default function App() {
 
         {view === 'table' && (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-700">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-surface-700">
                 職缺列表
               </h2>
               {jobs.length > 0 && (

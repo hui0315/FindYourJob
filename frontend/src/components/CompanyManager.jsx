@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import {
+  Building2, ChevronUp, ChevronDown, ChevronRight,
+  ArrowLeft, Copy, Check, Pencil, Trash2, X,
+} from 'lucide-react';
+import {
   fetchCompanies, updateCompany, deleteCompany,
   fetchCompanyPromptTemplate, previewSupplementCompany, supplementCompany,
 } from '../api';
@@ -10,7 +14,7 @@ const BENEFIT_CATEGORY_LABELS = {
   leave: { label: '休假', color: 'bg-green-50 text-green-700 border-green-200' },
   subsidy: { label: '補助', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   system: { label: '制度', color: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  other: { label: '其他', color: 'bg-gray-50 text-gray-600 border-gray-200' },
+  other: { label: '其他', color: 'bg-surface-50 text-surface-600 border-surface-200' },
 };
 
 function parseBenefitsStructured(str) {
@@ -307,7 +311,7 @@ export default function CompanyManager({ onNavigateToJob }) {
 
   if (loading) {
     return (
-      <div className="text-center py-16 text-gray-400">
+      <div className="text-center py-16 text-surface-400">
         載入中...
       </div>
     );
@@ -315,8 +319,8 @@ export default function CompanyManager({ onNavigateToJob }) {
 
   if (companies.length === 0) {
     return (
-      <div className="text-center py-16 text-gray-400">
-        <p className="text-4xl mb-4">🏢</p>
+      <div className="text-center py-16 text-surface-400">
+        <Building2 size={48} className="mx-auto mb-4 text-surface-300" strokeWidth={1.5} />
         <p className="text-lg">尚無公司資料</p>
         <p className="text-sm mt-1">新增職缺時會自動建立公司</p>
       </div>
@@ -326,10 +330,10 @@ export default function CompanyManager({ onNavigateToJob }) {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-700">
+        <h2 className="text-lg font-semibold text-surface-700">
           公司管理
         </h2>
-        <span className="text-sm text-gray-400">
+        <span className="text-sm text-surface-400">
           共 {companies.length} 間公司
         </span>
       </div>
@@ -340,7 +344,7 @@ export default function CompanyManager({ onNavigateToJob }) {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {companies.map((company) => {
           const expanded = expandedId === company.id;
           const editing = editingId === company.id;
@@ -355,23 +359,23 @@ export default function CompanyManager({ onNavigateToJob }) {
           return (
             <div
               key={company.id}
-              className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-200"
+              className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5 border border-surface-200/80"
             >
               {/* Header row */}
               <div
-                className="p-4 flex items-center gap-4 cursor-pointer"
+                className="p-5 flex items-center gap-4 cursor-pointer"
                 onClick={() => {
                   setExpandedId(expanded ? null : company.id);
                   if (editing && !expanded) setEditingId(null);
                 }}
               >
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center
-                                text-blue-600 font-bold text-lg shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center
+                                text-primary-600 font-bold text-lg shrink-0 border border-primary-100">
                   {company.name.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-800 truncate">{company.name}</h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                  <h3 className="font-semibold text-surface-800 truncate">{company.name}</h3>
+                  <div className="flex items-center gap-3 text-xs text-surface-400 mt-0.5">
                     <span>{company.job_count ?? 0} 筆職缺</span>
                     {company.industry && <span>{company.industry}</span>}
                     {hasContact && <span>有聯絡資訊</span>}
@@ -379,14 +383,14 @@ export default function CompanyManager({ onNavigateToJob }) {
                     {company.interview_process && <span>有面試流程</span>}
                   </div>
                 </div>
-                <span className="shrink-0 text-gray-400 text-sm">
-                  {expanded ? '▲' : '▼'}
+                <span className="shrink-0 text-surface-400">
+                  {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </span>
               </div>
 
               {/* Expanded detail */}
               {expanded && (
-                <div className="px-4 pb-4 pt-0 border-t border-gray-100">
+                <div className="px-5 pb-5 pt-0 border-t border-surface-100">
                   {!editing ? (
                     /* ── View mode ── */
                     <div className="mt-3">
@@ -395,9 +399,9 @@ export default function CompanyManager({ onNavigateToJob }) {
                         <div className="mb-4 grid grid-cols-3 gap-3">
                           {EXTRA_FIELDS.map((f) =>
                             company[f.key] ? (
-                              <div key={f.key} className="bg-gray-50 rounded-lg px-3 py-2">
-                                <div className="text-[10px] font-medium text-gray-400 mb-0.5">{f.label}</div>
-                                <div className="text-sm text-gray-700">{company[f.key]}</div>
+                              <div key={f.key} className="bg-surface-50 rounded-lg px-3 py-2">
+                                <div className="text-[10px] font-medium text-surface-400 mb-0.5">{f.label}</div>
+                                <div className="text-sm text-surface-700">{company[f.key]}</div>
                               </div>
                             ) : null
                           )}
@@ -407,7 +411,7 @@ export default function CompanyManager({ onNavigateToJob }) {
                       {/* Benefits */}
                       {bs && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-2">福利制度</h4>
+                          <h4 className="text-xs font-medium text-surface-500 mb-2">福利制度</h4>
                           <div className="space-y-1">
                             {Object.entries(bs)
                               .filter(([, items]) => items.length > 0)
@@ -436,26 +440,26 @@ export default function CompanyManager({ onNavigateToJob }) {
                       )}
                       {!bs && company.benefits && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">福利</h4>
-                          <p className="text-sm text-gray-700">{company.benefits}</p>
+                          <h4 className="text-xs font-medium text-surface-500 mb-1">福利</h4>
+                          <p className="text-sm text-surface-700">{company.benefits}</p>
                         </div>
                       )}
 
                       {/* Interview process */}
                       {company.interview_process && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">面試流程</h4>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{company.interview_process}</p>
+                          <h4 className="text-xs font-medium text-surface-500 mb-1">面試流程</h4>
+                          <p className="text-sm text-surface-700 whitespace-pre-wrap">{company.interview_process}</p>
                         </div>
                       )}
 
                       {/* Interview questions */}
                       {iq && iq.length > 0 && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-2">考古題</h4>
+                          <h4 className="text-xs font-medium text-surface-500 mb-2">考古題</h4>
                           <ol className="list-decimal list-inside space-y-1">
                             {iq.map((q, i) => (
-                              <li key={i} className="text-sm text-gray-700">{q}</li>
+                              <li key={i} className="text-sm text-surface-700">{q}</li>
                             ))}
                           </ol>
                         </div>
@@ -464,8 +468,8 @@ export default function CompanyManager({ onNavigateToJob }) {
                       {/* AI notes */}
                       {company.ai_notes && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">AI 備註</h4>
-                          <div className="text-sm text-gray-700 bg-blue-50 border border-blue-100
+                          <h4 className="text-xs font-medium text-surface-500 mb-1">AI 備註</h4>
+                          <div className="text-sm text-surface-700 bg-primary-50 border border-primary-100
                                           rounded-lg px-3 py-2 whitespace-pre-wrap">
                             {company.ai_notes}
                           </div>
@@ -475,30 +479,30 @@ export default function CompanyManager({ onNavigateToJob }) {
                       {/* Contact info */}
                       {hasContact && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-2">聯絡資訊</h4>
+                          <h4 className="text-xs font-medium text-surface-500 mb-2">聯絡資訊</h4>
                           <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
                             {CONTACT_FIELDS.map((f) =>
                               company[f.key] ? (
                                 <div key={f.key}>
-                                  <span className="text-gray-400">{f.label}：</span>
+                                  <span className="text-surface-400">{f.label}：</span>
                                   {f.key === 'website' ? (
                                     <a
                                       href={company[f.key]}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="text-blue-500 hover:underline"
+                                      className="text-primary-500 hover:underline"
                                     >
                                       {company[f.key]}
                                     </a>
                                   ) : f.key === 'contact_email' ? (
                                     <a
                                       href={`mailto:${company[f.key]}`}
-                                      className="text-blue-500 hover:underline"
+                                      className="text-primary-500 hover:underline"
                                     >
                                       {company[f.key]}
                                     </a>
                                   ) : (
-                                    <span className="text-gray-700">{company[f.key]}</span>
+                                    <span className="text-surface-700">{company[f.key]}</span>
                                   )}
                                 </div>
                               ) : null
@@ -509,8 +513,8 @@ export default function CompanyManager({ onNavigateToJob }) {
 
                       {company.notes && (
                         <div className="mb-4">
-                          <h4 className="text-xs font-medium text-gray-500 mb-1">備註</h4>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap">{company.notes}</p>
+                          <h4 className="text-xs font-medium text-surface-500 mb-1">備註</h4>
+                          <p className="text-sm text-surface-700 whitespace-pre-wrap">{company.notes}</p>
                         </div>
                       )}
 
@@ -520,11 +524,11 @@ export default function CompanyManager({ onNavigateToJob }) {
                       )}
 
                       {/* Action buttons */}
-                      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-surface-100">
                         <button
                           onClick={(e) => { e.stopPropagation(); startEditing(company); }}
-                          className="px-3 py-1 text-sm text-blue-600 border border-blue-200
-                                     rounded hover:bg-blue-50 transition-colors"
+                          className="px-3 py-1 text-sm text-primary-600 border border-primary-200
+                                     rounded hover:bg-primary-50 transition-colors"
                         >
                           編輯
                         </button>
@@ -541,7 +545,7 @@ export default function CompanyManager({ onNavigateToJob }) {
                     /* ── Edit mode (tabbed: manual + supplement) ── */
                     <div className="mt-3">
                       {/* Tab navigation */}
-                      <div className="flex border-b border-gray-200 mb-3">
+                      <div className="flex border-b border-surface-200 mb-3">
                         {[
                           { key: 'manual', label: '手動填寫' },
                           { key: 'supplement', label: '補充資料' },
@@ -551,8 +555,8 @@ export default function CompanyManager({ onNavigateToJob }) {
                             onClick={(e) => { e.stopPropagation(); setEditTab(tab.key); setError(''); setSupplementError(''); }}
                             className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors
                               ${editTab === tab.key
-                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                                : 'text-gray-500 hover:text-gray-700'
+                                ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50/50'
+                                : 'text-surface-500 hover:text-surface-700'
                               }`}
                           >
                             {tab.label}
@@ -592,36 +596,36 @@ export default function CompanyManager({ onNavigateToJob }) {
                           {/* Step: Input */}
                           {supplementStep === 'input' && (
                             <div>
-                              <p className="text-sm text-gray-500 mb-3">
+                              <p className="text-sm text-surface-500 mb-3">
                                 貼上從公司官網、面試心得、PTT、Glassdoor 等來源複製的公司資訊，
                                 AI 會整理成結構化資料（福利、面試流程、考古題、文化等）。
                               </p>
                               <textarea
-                                className="w-full h-40 p-3 border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                           resize-y text-sm font-mono bg-white text-gray-800
-                                           placeholder:text-gray-400"
+                                className="w-full h-40 p-3 border border-surface-300 rounded-lg
+                                           focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                           resize-y text-sm font-mono bg-white text-surface-800
+                                           placeholder:text-surface-400"
                                 placeholder="貼上公司相關資訊（福利制度、面試經驗、公司介紹等）..."
                                 value={rawText}
                                 onChange={(e) => setRawText(e.target.value)}
                                 maxLength={50000}
                               />
-                              <div className="text-xs text-gray-400 text-right mt-1">
+                              <div className="text-xs text-surface-400 text-right mt-1">
                                 {rawText.length.toLocaleString()} / 50,000
                               </div>
                               <div className="flex items-center gap-3 mt-3">
                                 <button
                                   onClick={handleGoOnline}
                                   disabled={supplementLoading}
-                                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                                             hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                  className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                                             hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                              transition-colors"
                                 >
                                   複製 Prompt 給線上 LLM
                                 </button>
                                 <button
                                   onClick={() => { setEditingId(null); setDirtyFields(new Set()); }}
-                                  className="text-sm text-gray-400 hover:text-gray-500 transition-colors"
+                                  className="text-sm text-surface-400 hover:text-surface-500 transition-colors"
                                 >
                                   取消
                                 </button>
@@ -634,13 +638,13 @@ export default function CompanyManager({ onNavigateToJob }) {
                             <div>
                               <button
                                 onClick={() => { setSupplementStep('input'); setSupplementError(''); }}
-                                className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                                className="text-sm text-surface-400 hover:text-surface-600 mb-3 transition-colors"
                               >
-                                &larr; 返回修改
+                                <ArrowLeft size={14} className="inline-block mr-1" />返回修改
                               </button>
                               <div className="mb-3">
                                 <div className="flex items-center justify-between mb-2">
-                                  <h3 className="text-sm font-medium text-gray-700">
+                                  <h3 className="text-sm font-medium text-surface-700">
                                     複製以下內容貼到 LLM
                                   </h3>
                                   <button
@@ -648,14 +652,14 @@ export default function CompanyManager({ onNavigateToJob }) {
                                     className={`px-3 py-1 text-xs rounded border transition-colors ${
                                       copied
                                         ? 'bg-green-50 text-green-600 border-green-300'
-                                        : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                                        : 'bg-white text-surface-600 border-surface-300 hover:border-primary-400'
                                     }`}
                                   >
                                     {copied ? 'OK' : 'Copy'}
                                   </button>
                                 </div>
-                                <pre className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg
-                                                text-xs font-mono text-gray-600 whitespace-pre-wrap
+                                <pre className="w-full p-3 bg-surface-50 border border-surface-200 rounded-lg
+                                                text-xs font-mono text-surface-600 whitespace-pre-wrap
                                                 overflow-y-auto max-h-32 leading-relaxed">
                                   {combinedPrompt}
                                 </pre>
@@ -668,10 +672,10 @@ export default function CompanyManager({ onNavigateToJob }) {
                                 </ol>
                               </div>
                               <textarea
-                                className="w-full h-32 p-3 border border-gray-300 rounded-lg
-                                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                           resize-y text-sm font-mono bg-white text-gray-800
-                                           placeholder:text-gray-400"
+                                className="w-full h-32 p-3 border border-surface-300 rounded-lg
+                                           focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                           resize-y text-sm font-mono bg-white text-surface-800
+                                           placeholder:text-surface-400"
                                 placeholder="貼上 LLM 回覆的 JSON..."
                                 value={jsonText}
                                 onChange={(e) => setJsonText(e.target.value)}
@@ -680,8 +684,8 @@ export default function CompanyManager({ onNavigateToJob }) {
                                 <button
                                   onClick={handleImportPreview}
                                   disabled={supplementLoading}
-                                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                                             hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                  className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                                             hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                              transition-colors"
                                 >
                                   {supplementLoading ? '解析中...' : '預覽解析結果'}
@@ -695,12 +699,12 @@ export default function CompanyManager({ onNavigateToJob }) {
                             <div>
                               <button
                                 onClick={() => { setSupplementStep('online'); setSupplementError(''); setPreviewData(null); }}
-                                className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                                className="text-sm text-surface-400 hover:text-surface-600 mb-3 transition-colors"
                               >
-                                &larr; 返回修改
+                                <ArrowLeft size={14} className="inline-block mr-1" />返回修改
                               </button>
 
-                              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                              <h3 className="text-sm font-medium text-surface-700 mb-3">
                                 解析結果預覽
                               </h3>
 
@@ -728,7 +732,7 @@ export default function CompanyManager({ onNavigateToJob }) {
                                           }
                                           className="mt-0.5 rounded text-green-600 focus:ring-green-500"
                                         />
-                                        <span className="text-sm text-gray-600 w-24 shrink-0">{f.label}</span>
+                                        <span className="text-sm text-surface-600 w-24 shrink-0">{f.label}</span>
                                         <div className="text-sm font-medium text-green-700 min-w-0 flex-1">
                                           <FriendlyValue field={f.field} value={f.new_value} />
                                         </div>
@@ -758,10 +762,10 @@ export default function CompanyManager({ onNavigateToJob }) {
                                           className={`p-3 rounded-lg border transition-colors ${
                                             !choice
                                               ? 'border-amber-300 bg-amber-50'
-                                              : 'border-gray-200 bg-gray-50'
+                                              : 'border-surface-200 bg-surface-50'
                                           }`}
                                         >
-                                          <div className="text-sm font-medium text-gray-700 mb-2">
+                                          <div className="text-sm font-medium text-surface-700 mb-2">
                                             {c.label}
                                           </div>
                                           <div className="grid grid-cols-2 gap-2">
@@ -769,8 +773,8 @@ export default function CompanyManager({ onNavigateToJob }) {
                                               className={`flex items-start gap-2 p-2 rounded border cursor-pointer
                                                 transition-colors ${
                                                 choice === 'old'
-                                                  ? 'border-blue-400 bg-blue-50'
-                                                  : 'border-gray-200 bg-white hover:border-gray-300'
+                                                  ? 'border-primary-400 bg-primary-50'
+                                                  : 'border-surface-200 bg-white hover:border-surface-300'
                                               }`}
                                             >
                                               <input
@@ -783,11 +787,11 @@ export default function CompanyManager({ onNavigateToJob }) {
                                                     [c.field]: 'old',
                                                   }))
                                                 }
-                                                className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                                                className="mt-0.5 text-primary-600 focus:ring-primary-500"
                                               />
                                               <div className="min-w-0">
-                                                <div className="text-[10px] text-gray-400 mb-0.5">目前值</div>
-                                                <div className="text-sm text-gray-700">
+                                                <div className="text-[10px] text-surface-400 mb-0.5">目前值</div>
+                                                <div className="text-sm text-surface-700">
                                                   <FriendlyValue field={c.field} value={c.old_value} />
                                                 </div>
                                               </div>
@@ -797,7 +801,7 @@ export default function CompanyManager({ onNavigateToJob }) {
                                                 transition-colors ${
                                                 choice === 'new'
                                                   ? 'border-green-400 bg-green-50'
-                                                  : 'border-gray-200 bg-white hover:border-gray-300'
+                                                  : 'border-surface-200 bg-white hover:border-surface-300'
                                               }`}
                                             >
                                               <input
@@ -829,19 +833,19 @@ export default function CompanyManager({ onNavigateToJob }) {
 
                               {/* No changes */}
                               {previewData.conflicts.length === 0 && previewData.new_fields.length === 0 && (
-                                <p className="text-sm text-gray-400 text-center py-6">
+                                <p className="text-sm text-surface-400 text-center py-6">
                                   解析後沒有新的欄位變更
                                 </p>
                               )}
 
                               {/* Confirm button */}
                               {(previewData.conflicts.length > 0 || previewData.new_fields.length > 0) && (
-                                <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+                                <div className="flex gap-3 mt-3 pt-3 border-t border-surface-100">
                                   <button
                                     onClick={handleConfirmMerge}
                                     disabled={supplementLoading || unresolvedConflicts > 0}
-                                    className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                                               hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                    className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                                               hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                                transition-colors"
                                   >
                                     {supplementLoading ? '合併中...' : '確認合併'}
@@ -878,24 +882,24 @@ function HistorySection({ history }) {
     <div className="mb-4">
       <button
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        className="flex items-center gap-2 text-xs font-medium text-gray-400
-                   hover:text-gray-600 transition-colors"
+        className="flex items-center gap-2 text-xs font-medium text-surface-400
+                   hover:text-surface-600 transition-colors"
       >
-        <span>{open ? '▼' : '▶'}</span>
+        <span>{open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
         編輯紀錄 ({history.length})
       </button>
       {open && (
         <div className="mt-2 space-y-2">
           {[...history].reverse().map((entry, i) => (
-            <div key={i} className="border border-gray-200 rounded-lg p-2.5">
+            <div key={i} className="border border-surface-200 rounded-lg p-2.5">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] px-1.5 py-px rounded-full font-medium bg-gray-100 text-gray-400">
+                <span className="text-[10px] px-1.5 py-px rounded-full font-medium bg-surface-100 text-surface-400">
                   {SOURCE_LABELS[entry.source] || entry.source}
                 </span>
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-surface-500">
                   {ACTION_LABELS[entry.action] || entry.action}
                 </span>
-                <span className="text-[10px] text-gray-400 ml-auto">
+                <span className="text-[10px] text-surface-400 ml-auto">
                   {formatTimestamp(entry.timestamp)}
                 </span>
               </div>
@@ -904,7 +908,7 @@ function HistorySection({ history }) {
                   {entry.fields_updated.map((f) => (
                     <span
                       key={f}
-                      className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded"
+                      className="text-[10px] px-1.5 py-0.5 bg-surface-100 text-surface-600 rounded"
                     >
                       {COMPANY_FIELD_LABELS[f] || f}
                     </span>
@@ -963,12 +967,12 @@ function CompanyEditPanel({
         <div>
           <button
             onClick={onToggleEditSection}
-            className="flex items-center gap-2 text-sm font-medium text-gray-500
-                       hover:text-gray-700 transition-colors mb-2 w-full"
+            className="flex items-center gap-2 text-sm font-medium text-surface-500
+                       hover:text-surface-700 transition-colors mb-2 w-full"
           >
-            <span className="text-xs">{editSectionOpen ? '▼' : '▶'}</span>
+            <span>{editSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
             修正已有資料 ({filledFields.length} 個欄位)
-            <span className="text-xs text-gray-400 font-normal ml-1">
+            <span className="text-xs text-surface-400 font-normal ml-1">
               修正 LLM 整理錯誤
             </span>
           </button>
@@ -991,25 +995,25 @@ function CompanyEditPanel({
       )}
 
       {/* Save button */}
-      <div className="flex gap-3 mt-4 pt-3 border-t border-gray-100">
+      <div className="flex gap-3 mt-4 pt-3 border-t border-surface-100">
         <button
           onClick={onSave}
           disabled={saving || dirtyFields.size === 0}
-          className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                     hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+          className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                     hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                      transition-colors"
         >
           {saving ? '儲存中...' : '儲存修改'}
         </button>
         <button
           onClick={onCancel}
-          className="px-4 py-2 text-sm text-gray-500 border border-gray-300 rounded-lg
-                     hover:bg-gray-50 transition-colors"
+          className="px-4 py-2 text-sm text-surface-500 border border-surface-300 rounded-lg
+                     hover:bg-surface-50 transition-colors"
         >
           取消
         </button>
         {dirtyFields.size > 0 && (
-          <span className="text-xs text-gray-400 self-center">
+          <span className="text-xs text-surface-400 self-center">
             已修改 {dirtyFields.size} 個欄位
           </span>
         )}
@@ -1024,16 +1028,16 @@ function CompanyFieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
   const displayVal = value ?? '';
   return (
     <div className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors
-                     ${isEmpty ? 'bg-amber-50/50 border border-amber-200' : 'bg-gray-50 border border-gray-200'}
-                     ${isDirty ? 'ring-2 ring-blue-300' : ''}`}>
+                     ${isEmpty ? 'bg-amber-50/50 border border-amber-200' : 'bg-surface-50 border border-surface-200'}
+                     ${isDirty ? 'ring-2 ring-primary-300' : ''}`}>
       <div className="w-28 shrink-0 pt-1.5">
-        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+        <label className="text-sm font-medium text-surface-700">{field.label}</label>
         {meta && (
           <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
+            <span className="text-[10px] px-1 py-px rounded bg-surface-100 text-surface-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
-            <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
+            <span className="text-[10px] text-surface-400">{formatTimestamp(meta.updated_at)}</span>
           </div>
         )}
       </div>
@@ -1049,21 +1053,21 @@ function CompanyFieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
 function CompanyEditFieldInput({ field, currentValue, editValue, onChange, isDirty, meta }) {
   const displayVal = editValue ?? '';
   return (
-    <div className={`p-2.5 rounded-lg transition-colors bg-gray-50 border border-gray-200
-                     ${isDirty ? 'ring-2 ring-blue-300' : ''}`}>
+    <div className={`p-2.5 rounded-lg transition-colors bg-surface-50 border border-surface-200
+                     ${isDirty ? 'ring-2 ring-primary-300' : ''}`}>
       <div className="flex items-center gap-2 mb-1.5">
-        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+        <label className="text-sm font-medium text-surface-700">{field.label}</label>
         {meta && (
           <>
-            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
+            <span className="text-[10px] px-1 py-px rounded bg-surface-100 text-surface-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
-            <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
+            <span className="text-[10px] text-surface-400">{formatTimestamp(meta.updated_at)}</span>
           </>
         )}
       </div>
       {/* Current value display */}
-      <div className="mb-1.5 px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-500 break-all whitespace-pre-wrap">
+      <div className="mb-1.5 px-2 py-1 bg-white border border-surface-200 rounded text-xs text-surface-500 break-all whitespace-pre-wrap">
         目前：{displayFieldValue(currentValue)}
       </div>
       {/* Edit input */}
@@ -1080,8 +1084,8 @@ function CompanyInputWidget({ field, value, onChange, placeholder }) {
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                   focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+        className="w-full px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                   focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
         rows={field.rows || 2}
         placeholder={placeholder}
       />
@@ -1092,8 +1096,8 @@ function CompanyInputWidget({ field, value, onChange, placeholder }) {
       type="text"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="w-full px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
       placeholder={placeholder}
     />
   );
