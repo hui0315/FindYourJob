@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 // eslint-disable-next-line no-unused-vars -- motion.button used in JSX
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import { fetchSkillPool, updateUserSkills } from '../api';
@@ -33,10 +33,10 @@ const chipTransition = { type: 'spring', stiffness: 500, damping: 30 };
 
 export default function SkillPicker() {
   const [skills, setSkills] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState({});
+  const [savingSkill, setSavingSkill] = useState(null); // skill name currently saving
   const [message, setMessage] = useState('');  // success or error
   const [messageType, setMessageType] = useState(''); // 'ok' | 'err'
+  const messageClearTimer = useRef(null);
 
   useEffect(() => {
     fetchSkillPool().then((data) => {
@@ -44,46 +44,49 @@ export default function SkillPicker() {
     });
   }, []);
 
-  function cycleStatus(skill, currentStatus) {
+  // Auto-dismiss success messages after 1.5s
+  useEffect(() => {
+    if (message && messageType === 'ok') {
+      clearTimeout(messageClearTimer.current);
+      messageClearTimer.current = setTimeout(() => setMessage(''), 1500);
+    }
+    return () => clearTimeout(messageClearTimer.current);
+  }, [message, messageType]);
+
+  async function cycleStatus(skill, currentStatus) {
+    if (savingSkill) return; // prevent concurrent saves
     const idx = STATUS_CYCLE.indexOf(currentStatus);
     const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
 
+    // Optimistic UI update
     setSkills((prev) =>
       prev.map((s) => (s.skill === skill ? { ...s, status: next } : s))
     );
-    setDirty((prev) => ({ ...prev, [skill]: next }));
+    setSavingSkill(skill);
     setMessage('');
-  }
 
-  async function handleSave() {
-    if (Object.keys(dirty).length === 0) return;
-    setSaving(true);
-    setMessage('');
     try {
-      const result = await updateUserSkills(dirty);
+      const result = await updateUserSkills({ [skill]: next });
       // Apply server-confirmed state
       if (result && result.skills) {
         setSkills((prev) =>
           prev.map((s) => ({
             ...s,
-            status: result.skills[s.skill] ?? 'none',
+            status: result.skills[s.skill] ?? s.status,
           }))
         );
       }
-      setDirty({});
-      setMessage('技能分類已儲存');
+      setMessage('已儲存');
       setMessageType('ok');
-
-      // Re-fetch pool to double-verify persistence
-      const fresh = await fetchSkillPool();
-      if (Array.isArray(fresh) && fresh.length > 0) {
-        setSkills(fresh);
-      }
     } catch (e) {
+      // Revert on failure
+      setSkills((prev) =>
+        prev.map((s) => (s.skill === skill ? { ...s, status: currentStatus } : s))
+      );
       setMessage('儲存失敗：' + (e.message || '未知錯誤'));
       setMessageType('err');
     } finally {
-      setSaving(false);
+      setSavingSkill(null);
     }
   }
 
@@ -111,20 +114,18 @@ export default function SkillPicker() {
     none: skills.filter((s) => s.status === 'none'),
   };
 
-  const hasDirty = Object.keys(dirty).length > 0;
-
   return (
     <div>
       <h3 className="text-lg font-semibold text-surface-700 mb-1">
         技能匹配
       </h3>
       <p className="text-sm text-surface-400 mb-4">
-        點擊技能切換分類：未選 → 已會 → 可補強 → 未選
+        點擊技能切換分類：未選 → 已會 → 可補強 → 未選（自動儲存）
       </p>
 
       {/* Save feedback */}
       {message && (
-        <div className={`mb-4 px-3 py-2 rounded text-sm ${
+        <div className={`mb-4 px-3 py-2 rounded text-sm transition-opacity ${
           messageType === 'ok'
             ? 'bg-green-50 border border-green-200 text-green-600'
             : 'bg-red-50 border border-red-200 text-red-600'
@@ -172,12 +173,14 @@ export default function SkillPicker() {
                           layout
                           transition={chipTransition}
                           onClick={() => cycleStatus(skill, status)}
+                          disabled={savingSkill !== null}
                           className={`px-3 py-1.5 rounded-lg border text-sm
                                      select-none cursor-pointer hover:shadow-sm
+                                     disabled:opacity-60 disabled:cursor-wait
                                      ${zone.chipBg}`}
                           title={`出現在 ${job_count} 筆職缺中`}
                         >
-                          {skill}
+                          {savingSkill === skill ? '...' : skill}
                         </motion.button>
                       ))}
                     </AnimatePresence>
@@ -188,20 +191,6 @@ export default function SkillPicker() {
           })}
         </div>
       </LayoutGroup>
-
-      {/* Save */}
-      {hasDirty && (
-        <div className="mt-4">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
-                       hover:bg-primary-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? '儲存中...' : `儲存變更 (${Object.keys(dirty).length})`}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
