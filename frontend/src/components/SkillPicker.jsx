@@ -35,9 +35,13 @@ export default function SkillPicker() {
   const [skills, setSkills] = useState([]);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState({});
+  const [message, setMessage] = useState('');  // success or error
+  const [messageType, setMessageType] = useState(''); // 'ok' | 'err'
 
   useEffect(() => {
-    fetchSkillPool().then(setSkills);
+    fetchSkillPool().then((data) => {
+      if (Array.isArray(data)) setSkills(data);
+    });
   }, []);
 
   function cycleStatus(skill, currentStatus) {
@@ -48,15 +52,17 @@ export default function SkillPicker() {
       prev.map((s) => (s.skill === skill ? { ...s, status: next } : s))
     );
     setDirty((prev) => ({ ...prev, [skill]: next }));
+    setMessage('');
   }
 
   async function handleSave() {
     if (Object.keys(dirty).length === 0) return;
     setSaving(true);
+    setMessage('');
     try {
       const result = await updateUserSkills(dirty);
-      // Verify the save actually persisted by checking returned data
-      if (result.skills) {
+      // Apply server-confirmed state
+      if (result && result.skills) {
         setSkills((prev) =>
           prev.map((s) => ({
             ...s,
@@ -65,8 +71,17 @@ export default function SkillPicker() {
         );
       }
       setDirty({});
-    } catch {
-      alert('儲存失敗');
+      setMessage('技能分類已儲存');
+      setMessageType('ok');
+
+      // Re-fetch pool to double-verify persistence
+      const fresh = await fetchSkillPool();
+      if (Array.isArray(fresh) && fresh.length > 0) {
+        setSkills(fresh);
+      }
+    } catch (e) {
+      setMessage('儲存失敗：' + (e.message || '未知錯誤'));
+      setMessageType('err');
     } finally {
       setSaving(false);
     }
@@ -106,6 +121,17 @@ export default function SkillPicker() {
       <p className="text-sm text-surface-400 mb-4">
         點擊技能切換分類：未選 → 已會 → 可補強 → 未選
       </p>
+
+      {/* Save feedback */}
+      {message && (
+        <div className={`mb-4 px-3 py-2 rounded text-sm ${
+          messageType === 'ok'
+            ? 'bg-green-50 border border-green-200 text-green-600'
+            : 'bg-red-50 border border-red-200 text-red-600'
+        }`}>
+          {message}
+        </div>
+      )}
 
       <LayoutGroup>
         <div className="space-y-5">

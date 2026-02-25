@@ -161,7 +161,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
       const updated = await updateJob(job.id, { status: statusValue });
       setSuccess('儲存成功');
       onSave(updated);
-      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -179,7 +178,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
       const updated = await updateJob(job.id, { workload: workloadValue || null });
       setSuccess('儲存成功');
       onSave(updated);
-      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -380,6 +378,22 @@ export default function JobEditModal({ job, onSave, onClose }) {
           </button>
         </div>
 
+        {/* Success / Error — fixed between header and quick-access bar */}
+        {(error || success) && (
+          <div className="px-6 pt-3 pb-0">
+            {error && (
+              <div className="px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div className="px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-600">
+                {success}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Quick-access: status + workload */}
         <div className="px-6 py-3 border-b border-surface-200 flex flex-wrap items-center gap-x-6 gap-y-2">
           {/* 投遞狀態 */}
@@ -460,17 +474,6 @@ export default function JobEditModal({ job, onSave, onClose }) {
 
         {/* Content */}
         <div ref={contentRef} className="px-6 py-4 max-h-[60vh] overflow-y-auto">
-          {error && (
-            <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-600">
-              {success}
-            </div>
-          )}
-
           {/* ═══ Tab: Manual Fill + Edit ═══ */}
           {activeTab === 'manual' && (
             <div>
