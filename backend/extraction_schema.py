@@ -8,7 +8,7 @@ automatically updates the prompt without touching llm_parser.py.
 
 import json
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from models import JobData, CompanyData
 from mock_parser import extract_city
@@ -320,6 +320,14 @@ class CompanyExtraction(BaseModel):
     interview_questions: Optional[str] = Field(
         None, description="面試考古題或常見問題，以 JSON 陣列格式列出，如 [\"請自我介紹\", \"系統設計題\"]"
     )
+
+    @field_validator('interview_questions', mode='before')
+    @classmethod
+    def serialize_interview_questions(cls, v):
+        if isinstance(v, list):
+            return json.dumps(v, ensure_ascii=False) if v else None
+        return v
+
     ai_notes: Optional[str] = Field(
         None, description="AI 整理的重點摘要：公司優勢、注意事項、整體評價等"
     )
