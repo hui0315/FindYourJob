@@ -52,7 +52,6 @@ const STATUS_OPTIONS = [
 ];
 
 const EDITABLE_FIELDS = [
-  { key: 'status', label: '投遞狀態', type: 'select', options: STATUS_OPTIONS },
   { key: 'title', label: '職位名稱', type: 'text' },
   { key: 'company', label: '公司名稱', type: 'text' },
   { key: 'salary_min', label: '最低薪資', type: 'number' },
@@ -133,6 +132,10 @@ export default function JobEditModal({ job, onSave, onClose }) {
   const [conflictChoices, setConflictChoices] = useState({}); // { field: 'old' | 'new' }
   const [newFieldChecked, setNewFieldChecked] = useState({}); // { field: boolean }
 
+  // Status — independent from manual edit form
+  const [statusValue, setStatusValue] = useState(job.status || 'not_applied');
+  const [statusSaving, setStatusSaving] = useState(false);
+
   // Manual mode state
   const [formData, setFormData] = useState({});
   const [dirtyFields, setDirtyFields] = useState(new Set());
@@ -152,7 +155,22 @@ export default function JobEditModal({ job, onSave, onClose }) {
     }
     setFormData(data);
     setDirtyFields(new Set());
+    setStatusValue(job.status || 'not_applied');
   }, [job]);
+
+  // ── Status: independent save ──
+  async function handleStatusSave() {
+    if (statusValue === job.status) return;
+    setStatusSaving(true);
+    try {
+      const updated = await updateJob(job.id, { status: statusValue });
+      onSave(updated);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setStatusSaving(false);
+    }
+  }
 
   const combinedPrompt = promptTemplate ? promptTemplate + '\n' + rawText : rawText;
 
@@ -345,6 +363,31 @@ export default function JobEditModal({ job, onSave, onClose }) {
           >
             x
           </button>
+        </div>
+
+        {/* Status — independent quick-access */}
+        <div className="px-6 py-3 border-b border-gray-200 flex items-center gap-3">
+          <label className="text-sm font-medium text-gray-700 shrink-0">投遞狀態</label>
+          <select
+            value={statusValue}
+            onChange={(e) => setStatusValue(e.target.value)}
+            className="px-2.5 py-1.5 text-sm border border-gray-300 rounded
+                       focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          {statusValue !== job.status && (
+            <button
+              onClick={handleStatusSave}
+              disabled={statusSaving}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded
+                         hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {statusSaving ? '儲存中...' : '儲存'}
+            </button>
+          )}
         </div>
 
         {/* Tab navigation */}
