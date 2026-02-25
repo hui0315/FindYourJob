@@ -89,7 +89,6 @@ class JobData(BaseModel):
     source_url: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = "not_applied"  # not_applied, applied, interviewing, offered, rejected
-    priority: Optional[int] = 3  # 1-5, 1=highest
     mismatches: Optional[str] = None  # JSON string of mismatch reasons
     skill_match: Optional[str] = None  # JSON: {score, known, learning, missing, total}
     raw_text: Optional[str] = None
@@ -125,7 +124,6 @@ class JobUpdate(BaseModel):
     source_url: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
-    priority: Optional[int] = None
 
 
 class MismatchItem(BaseModel):

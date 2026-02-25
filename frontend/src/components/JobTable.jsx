@@ -3,7 +3,6 @@ import {
   Clock, DollarSign, ClipboardList, Zap,
   ChevronUp, ChevronDown, ClipboardX, Pencil, Trash2, History, X, AlertTriangle,
 } from 'lucide-react';
-import { updateJob } from '../api';
 import JobEditModal from './JobEditModal';
 
 const SORT_OPTIONS = [
@@ -46,8 +45,6 @@ const REMOTE_LABELS = {
   hybrid: '混合',
   remote: '遠端',
 };
-
-const STATUS_CYCLE = ['not_applied', 'applied', 'interviewing', 'offered', 'rejected'];
 
 const STATUS_LABELS = {
   not_applied:  { text: '未投遞',       color: 'bg-red-100 text-red-700 border-red-300' },
@@ -242,7 +239,7 @@ const HISTORY_FIELD_LABELS = {
   skills: '技能需求', experience_years: '經驗年數', education: '學歷要求',
   remote_type: '遠端類型', work_hours: '上班時間', leave_policy: '休假制度',
   benefits: '福利', language: '語文條件', source_url: '來源連結',
-  notes: '備註', priority: '優先順序',
+  notes: '備註',
 };
 
 export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
@@ -256,18 +253,6 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, 
     } else {
       const defaultOrder = key === 'status' ? 'asc' : 'desc';
       onSortChange(key, defaultOrder);
-    }
-  }
-
-  async function handleStatusCycle(e, job) {
-    e.stopPropagation();
-    const idx = STATUS_CYCLE.indexOf(job.status || 'not_applied');
-    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
-    try {
-      const updated = await updateJob(job.id, { status: next });
-      onJobUpdated(updated);
-    } catch {
-      // silently fail
     }
   }
 
@@ -411,19 +396,16 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, 
                 className="p-5 flex items-center gap-4 cursor-pointer"
                 onClick={() => setExpandedId(expanded ? null : job.id)}
               >
-                {/* Status badge — click to cycle */}
+                {/* Status badge — read-only */}
                 {(() => {
                   const st = STATUS_LABELS[job.status] || STATUS_LABELS.not_applied;
                   return (
-                    <button
-                      onClick={(e) => handleStatusCycle(e, job)}
-                      title="點擊切換投遞狀態"
+                    <span
                       className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-semibold
-                                  cursor-pointer select-none transition-all hover:shadow-sm
-                                  active:scale-95 ${st.color}`}
+                                  select-none ${st.color}`}
                     >
                       {st.text}
-                    </button>
+                    </span>
                   );
                 })()}
 

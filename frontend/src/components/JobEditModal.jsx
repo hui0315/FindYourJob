@@ -54,7 +54,6 @@ const EDITABLE_FIELDS = [
   { key: 'location', label: '工作地點', type: 'text' },
   { key: 'city', label: '縣市', type: 'text' },
   { key: 'job_type', label: '工作類型', type: 'select', options: JOB_TYPE_OPTIONS },
-  { key: 'workload', label: '工作量', type: 'select', options: WORKLOAD_OPTIONS },
   { key: 'description', label: '工作內容', type: 'textarea', rows: 4 },
   { key: 'skills', label: '技能需求', type: 'text' },
   { key: 'experience_years', label: '經驗年數', type: 'number' },
@@ -124,9 +123,11 @@ export default function JobEditModal({ job, onSave, onClose }) {
   const [conflictChoices, setConflictChoices] = useState({}); // { field: 'old' | 'new' }
   const [newFieldChecked, setNewFieldChecked] = useState({}); // { field: boolean }
 
-  // Status — independent from manual edit form
+  // Quick-access fields — independent from manual edit form
   const [statusValue, setStatusValue] = useState(job.status || 'not_applied');
   const [statusSaving, setStatusSaving] = useState(false);
+  const [workloadValue, setWorkloadValue] = useState(job.workload || '');
+  const [workloadSaving, setWorkloadSaving] = useState(false);
 
   // Manual mode state
   const [formData, setFormData] = useState({});
@@ -148,6 +149,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
     setFormData(data);
     setDirtyFields(new Set());
     setStatusValue(job.status || 'not_applied');
+    setWorkloadValue(job.workload || '');
   }, [job]);
 
   // ── Status: independent save ──
@@ -161,6 +163,20 @@ export default function JobEditModal({ job, onSave, onClose }) {
       setError(e.message);
     } finally {
       setStatusSaving(false);
+    }
+  }
+
+  // ── Workload: independent save ──
+  async function handleWorkloadSave() {
+    if (workloadValue === (job.workload || '')) return;
+    setWorkloadSaving(true);
+    try {
+      const updated = await updateJob(job.id, { workload: workloadValue || null });
+      onSave(updated);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setWorkloadSaving(false);
     }
   }
 
@@ -357,29 +373,57 @@ export default function JobEditModal({ job, onSave, onClose }) {
           </button>
         </div>
 
-        {/* Status — independent quick-access */}
-        <div className="px-6 py-3 border-b border-surface-200 flex items-center gap-3">
-          <label className="text-sm font-medium text-surface-700 shrink-0">投遞狀態</label>
-          <select
-            value={statusValue}
-            onChange={(e) => setStatusValue(e.target.value)}
-            className="px-2.5 py-1.5 text-sm border border-surface-300 rounded
-                       focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          {statusValue !== job.status && (
-            <button
-              onClick={handleStatusSave}
-              disabled={statusSaving}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded
-                         hover:bg-primary-700 disabled:opacity-50 transition-colors"
+        {/* Quick-access: status + workload */}
+        <div className="px-6 py-3 border-b border-surface-200 flex flex-wrap items-center gap-x-6 gap-y-2">
+          {/* 投遞狀態 */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-surface-700 shrink-0">投遞狀態</label>
+            <select
+              value={statusValue}
+              onChange={(e) => setStatusValue(e.target.value)}
+              className="px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                         focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
             >
-              {statusSaving ? '儲存中...' : '儲存'}
-            </button>
-          )}
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            {statusValue !== job.status && (
+              <button
+                onClick={handleStatusSave}
+                disabled={statusSaving}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded
+                           hover:bg-primary-700 disabled:opacity-50 transition-colors"
+              >
+                {statusSaving ? '儲存中...' : '儲存'}
+              </button>
+            )}
+          </div>
+          {/* 工作量 */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-surface-700 shrink-0">工作量</label>
+            <select
+              value={workloadValue}
+              onChange={(e) => setWorkloadValue(e.target.value)}
+              className="px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                         focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+            >
+              <option value="">-- 未選擇 --</option>
+              {WORKLOAD_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            {workloadValue !== (job.workload || '') && (
+              <button
+                onClick={handleWorkloadSave}
+                disabled={workloadSaving}
+                className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded
+                           hover:bg-primary-700 disabled:opacity-50 transition-colors"
+              >
+                {workloadSaving ? '儲存中...' : '儲存'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tab navigation */}
