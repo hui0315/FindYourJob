@@ -102,7 +102,7 @@ const COMPANY_FIELD_LABELS = {
   company_size: '公司規模', culture: '工作文化',
 };
 
-export default function CompanyManager({ onNavigateToJob }) {
+export default function CompanyManager() {
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);

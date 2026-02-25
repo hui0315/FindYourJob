@@ -251,7 +251,7 @@ const HISTORY_FIELD_LABELS = {
   notes: '備註', priority: '優先順序',
 };
 
-export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
+export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
   const [historyJob, setHistoryJob] = useState(null);

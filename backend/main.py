@@ -266,6 +266,7 @@ def get_skill_pool():
 def update_user_skills(updates: dict[str, str]):
     """Batch update user skill statuses. Body: {"React": "known", "Docker": "learning"}"""
     valid = {"known", "learning", "none"}
+    # Step 1: Save skill statuses (own transaction — guaranteed to persist)
     with get_db() as conn:
         for skill, status in updates.items():
             if status not in valid:
@@ -277,23 +278,32 @@ def update_user_skills(updates: dict[str, str]):
                     "INSERT OR REPLACE INTO user_skills (skill, status) VALUES (?, ?)",
                     (skill, status),
                 )
-        # Recalculate and persist skill_match for all jobs
-        rows = conn.execute("SELECT * FROM jobs").fetchall()
-        for row in rows:
-            job_obj = JobData(**dict(row))
-            match = calc_skill_match(job_obj, conn)
-            new_val = json.dumps(match, ensure_ascii=False) if match else None
-            conn.execute(
-                "UPDATE jobs SET skill_match = ? WHERE id = ?",
-                (new_val, row["id"]),
-            )
-        # Return the actual saved state for verification
         saved = conn.execute("SELECT skill, status FROM user_skills").fetchall()
-        return {
-            "message": "已更新",
-            "saved_count": len(saved),
-            "skills": {r["skill"]: r["status"] for r in saved},
-        }
+        skills_map = {r["skill"]: r["status"] for r in saved}
+
+    # Step 2: Recalculate skill_match for all jobs (separate transaction)
+    try:
+        with get_db() as conn:
+            rows = conn.execute("SELECT * FROM jobs").fetchall()
+            for row in rows:
+                try:
+                    job_obj = JobData(**dict(row))
+                except Exception:
+                    continue  # skip jobs with invalid data
+                match = calc_skill_match(job_obj, conn)
+                new_val = json.dumps(match, ensure_ascii=False) if match else None
+                conn.execute(
+                    "UPDATE jobs SET skill_match = ? WHERE id = ?",
+                    (new_val, row["id"]),
+                )
+    except Exception:
+        pass  # recalculation failure should not affect skill save
+
+    return {
+        "message": "已更新",
+        "saved_count": len(skills_map),
+        "skills": skills_map,
+    }
 
 
 def calc_skill_match(job: JobData, conn) -> dict | None:

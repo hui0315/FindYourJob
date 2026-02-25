@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+// eslint-disable-next-line no-unused-vars -- motion.button used in JSX
 import { motion, LayoutGroup, AnimatePresence } from 'framer-motion';
 import { fetchSkillPool, updateUserSkills } from '../api';
 
