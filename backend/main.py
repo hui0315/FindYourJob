@@ -2,7 +2,7 @@ import json
 import re
 import os
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -263,8 +263,11 @@ def get_skill_pool():
 
 
 @app.put("/api/skills")
-def update_user_skills(updates: dict[str, str]):
+async def update_user_skills(request: Request):
     """Batch update user skill statuses. Body: {"React": "known", "Docker": "learning"}"""
+    updates = await request.json()
+    if not isinstance(updates, dict):
+        raise HTTPException(status_code=422, detail="需要 JSON 物件")
     valid = {"known", "learning", "none"}
     # Step 1: Save skill statuses (own transaction — guaranteed to persist)
     with get_db() as conn:
