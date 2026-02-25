@@ -123,17 +123,6 @@ export default function SkillPicker() {
         點擊技能切換分類：未選 → 已會 → 可補強 → 未選（自動儲存）
       </p>
 
-      {/* Save feedback */}
-      {message && (
-        <div className={`mb-4 px-3 py-2 rounded text-sm transition-opacity ${
-          messageType === 'ok'
-            ? 'bg-green-50 border border-green-200 text-green-600'
-            : 'bg-red-50 border border-red-200 text-red-600'
-        }`}>
-          {message}
-        </div>
-      )}
-
       <LayoutGroup>
         <div className="space-y-5">
           {['known', 'learning', 'none'].map((status) => {
@@ -191,6 +180,19 @@ export default function SkillPicker() {
           })}
         </div>
       </LayoutGroup>
+
+      {/* Save feedback — fixed height to avoid layout shift */}
+      <div className="mt-4 h-8 flex items-center">
+        {message && (
+          <span className={`px-3 py-1 rounded text-sm ${
+            messageType === 'ok'
+              ? 'text-green-600'
+              : 'bg-red-50 border border-red-200 text-red-600'
+          }`}>
+            {message}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
