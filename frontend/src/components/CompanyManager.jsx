@@ -103,14 +103,14 @@ export default function CompanyManager({ onNavigateToJob }) {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [editingId, setEditingId] = useState(null);
+  const [editTab, setEditTab] = useState('manual'); // 'manual' | 'supplement'
   const [editForm, setEditForm] = useState({});
   const [dirtyFields, setDirtyFields] = useState(new Set());
   const [editSectionOpen, setEditSectionOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  // AI supplement state
-  const [supplementId, setSupplementId] = useState(null);
+  // AI supplement state (now inside edit mode)
   const [supplementStep, setSupplementStep] = useState('input'); // 'input' | 'online' | 'preview' | 'history'
   const [rawText, setRawText] = useState('');
   const [jsonText, setJsonText] = useState('');
@@ -142,7 +142,7 @@ export default function CompanyManager({ onNavigateToJob }) {
 
   function startEditing(company) {
     setEditingId(company.id);
-    setSupplementId(null);
+    setEditTab('manual');
     const data = {};
     for (const field of ALL_EDITABLE_FIELDS) {
       data[field.key] = company[field.key] ?? '';
@@ -151,22 +151,18 @@ export default function CompanyManager({ onNavigateToJob }) {
     setDirtyFields(new Set());
     setEditSectionOpen(false);
     setError('');
-  }
-
-  function handleFieldChange(key, value) {
-    setEditForm((prev) => ({ ...prev, [key]: value }));
-    setDirtyFields((prev) => new Set(prev).add(key));
-  }
-
-  function startSupplement(company) {
-    setSupplementId(company.id);
-    setEditingId(null);
+    // Reset supplement state
     setSupplementStep('input');
     setRawText('');
     setJsonText('');
     setPreviewData(null);
     setSupplementError('');
     setSupplementSuccess('');
+  }
+
+  function handleFieldChange(key, value) {
+    setEditForm((prev) => ({ ...prev, [key]: value }));
+    setDirtyFields((prev) => new Set(prev).add(key));
   }
 
   async function handleSave(companyId) {
@@ -246,7 +242,7 @@ export default function CompanyManager({ onNavigateToJob }) {
     setSupplementSuccess('');
     setSupplementLoading(true);
     try {
-      const result = await previewSupplementCompany(supplementId, {
+      const result = await previewSupplementCompany(editingId, {
         rawText,
         jsonText,
         method: 'import',
@@ -287,21 +283,21 @@ export default function CompanyManager({ onNavigateToJob }) {
     setSupplementError('');
     setSupplementLoading(true);
     try {
-      const updated = await supplementCompany(supplementId, {
+      const updated = await supplementCompany(editingId, {
         rawText,
         jsonText,
         method: 'import',
         selectedFields,
       });
       setCompanies((prev) =>
-        prev.map((c) => (c.id === supplementId ? updated : c))
+        prev.map((c) => (c.id === editingId ? updated : c))
       );
       setSupplementSuccess('合併成功');
       setRawText('');
       setJsonText('');
       setPreviewData(null);
       setSupplementStep('input');
-      setTimeout(() => { setSupplementId(null); setSupplementSuccess(''); }, 1500);
+      setTimeout(() => { setEditTab('manual'); setSupplementSuccess(''); }, 1500);
     } catch (e) {
       setSupplementError(e.message);
     } finally {
@@ -348,7 +344,6 @@ export default function CompanyManager({ onNavigateToJob }) {
         {companies.map((company) => {
           const expanded = expandedId === company.id;
           const editing = editingId === company.id;
-          const supplementing = supplementId === company.id;
           const bs = parseBenefitsStructured(company.benefits_structured);
           const hasContact = CONTACT_FIELDS.some((f) => company[f.key]);
           const iq = parseInterviewQuestions(company.interview_questions);
@@ -368,7 +363,6 @@ export default function CompanyManager({ onNavigateToJob }) {
                 onClick={() => {
                   setExpandedId(expanded ? null : company.id);
                   if (editing && !expanded) setEditingId(null);
-                  if (supplementing && !expanded) setSupplementId(null);
                 }}
               >
                 <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center
@@ -393,7 +387,7 @@ export default function CompanyManager({ onNavigateToJob }) {
               {/* Expanded detail */}
               {expanded && (
                 <div className="px-4 pb-4 pt-0 border-t border-gray-100">
-                  {!editing && !supplementing ? (
+                  {!editing ? (
                     /* ── View mode ── */
                     <div className="mt-3">
                       {/* Company profile fields */}
@@ -535,13 +529,6 @@ export default function CompanyManager({ onNavigateToJob }) {
                           編輯
                         </button>
                         <button
-                          onClick={(e) => { e.stopPropagation(); startSupplement(company); }}
-                          className="px-3 py-1 text-sm text-indigo-600 border border-indigo-200
-                                     rounded hover:bg-indigo-50 transition-colors"
-                        >
-                          AI 整理
-                        </button>
-                        <button
                           onClick={(e) => { e.stopPropagation(); handleDelete(company.id); }}
                           className="px-3 py-1 text-sm text-red-500 border border-red-200
                                      rounded hover:bg-red-50 transition-colors"
@@ -550,300 +537,327 @@ export default function CompanyManager({ onNavigateToJob }) {
                         </button>
                       </div>
                     </div>
-                  ) : supplementing ? (
-                    /* ── AI Supplement mode ── */
+                  ) : (
+                    /* ── Edit mode (tabbed: manual + supplement) ── */
                     <div className="mt-3">
-                      {supplementError && (
-                        <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
-                          {supplementError}
-                        </div>
-                      )}
-                      {supplementSuccess && (
-                        <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-600">
-                          {supplementSuccess}
-                        </div>
-                      )}
-
-                      {/* Step: Input */}
-                      {supplementStep === 'input' && (
-                        <div>
-                          <p className="text-sm text-gray-500 mb-3">
-                            貼上從公司官網、面試心得、PTT、Glassdoor 等來源複製的公司資訊，
-                            AI 會整理成結構化資料（福利、面試流程、考古題、文化等）。
-                          </p>
-                          <textarea
-                            className="w-full h-40 p-3 border border-gray-300 rounded-lg
-                                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                       resize-y text-sm font-mono bg-white text-gray-800
-                                       placeholder:text-gray-400"
-                            placeholder="貼上公司相關資訊（福利制度、面試經驗、公司介紹等）..."
-                            value={rawText}
-                            onChange={(e) => setRawText(e.target.value)}
-                            maxLength={50000}
-                          />
-                          <div className="text-xs text-gray-400 text-right mt-1">
-                            {rawText.length.toLocaleString()} / 50,000
-                          </div>
-                          <div className="flex items-center gap-3 mt-3">
-                            <button
-                              onClick={handleGoOnline}
-                              disabled={supplementLoading}
-                              className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium
-                                         hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
-                                         transition-colors"
-                            >
-                              複製 Prompt 給線上 LLM
-                            </button>
-                            <button
-                              onClick={() => setSupplementId(null)}
-                              className="text-sm text-gray-400 hover:text-gray-500 transition-colors"
-                            >
-                              取消
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Step: Online LLM flow */}
-                      {supplementStep === 'online' && (
-                        <div>
+                      {/* Tab navigation */}
+                      <div className="flex border-b border-gray-200 mb-3">
+                        {[
+                          { key: 'manual', label: '手動填寫' },
+                          { key: 'supplement', label: '補充資料' },
+                        ].map((tab) => (
                           <button
-                            onClick={() => { setSupplementStep('input'); setSupplementError(''); }}
-                            className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                            key={tab.key}
+                            onClick={(e) => { e.stopPropagation(); setEditTab(tab.key); setError(''); setSupplementError(''); }}
+                            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors
+                              ${editTab === tab.key
+                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+                                : 'text-gray-500 hover:text-gray-700'
+                              }`}
                           >
-                            &larr; 返回修改
+                            {tab.label}
                           </button>
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between mb-2">
-                              <h3 className="text-sm font-medium text-gray-700">
-                                複製以下內容貼到 LLM
-                              </h3>
-                              <button
-                                onClick={handleCopy}
-                                className={`px-3 py-1 text-xs rounded border transition-colors ${
-                                  copied
-                                    ? 'bg-green-50 text-green-600 border-green-300'
-                                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
-                                }`}
-                              >
-                                {copied ? 'OK' : 'Copy'}
-                              </button>
+                        ))}
+                      </div>
+
+                      {/* Tab: Manual Edit */}
+                      {editTab === 'manual' && (
+                        <CompanyEditPanel
+                          company={company}
+                          editForm={editForm}
+                          dirtyFields={dirtyFields}
+                          editSectionOpen={editSectionOpen}
+                          saving={saving}
+                          onFieldChange={handleFieldChange}
+                          onToggleEditSection={() => setEditSectionOpen(!editSectionOpen)}
+                          onSave={() => handleSave(company.id)}
+                          onCancel={() => { setEditingId(null); setDirtyFields(new Set()); }}
+                        />
+                      )}
+
+                      {/* Tab: AI Supplement */}
+                      {editTab === 'supplement' && (
+                        <div>
+                          {supplementError && (
+                            <div className="mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+                              {supplementError}
                             </div>
-                            <pre className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg
-                                            text-xs font-mono text-gray-600 whitespace-pre-wrap
-                                            overflow-y-auto max-h-32 leading-relaxed">
-                              {combinedPrompt}
-                            </pre>
-                          </div>
-                          <div className="mb-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-600">
-                            <ol className="list-decimal list-inside space-y-0.5">
-                              <li>複製上方內容</li>
-                              <li>貼到 ChatGPT / Gemini / Claude</li>
-                              <li>把 LLM 回覆的 JSON 貼到下方</li>
-                            </ol>
-                          </div>
-                          <textarea
-                            className="w-full h-32 p-3 border border-gray-300 rounded-lg
-                                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                                       resize-y text-sm font-mono bg-white text-gray-800
-                                       placeholder:text-gray-400"
-                            placeholder="貼上 LLM 回覆的 JSON..."
-                            value={jsonText}
-                            onChange={(e) => setJsonText(e.target.value)}
-                          />
-                          <div className="flex gap-3 mt-3">
-                            <button
-                              onClick={handleImportPreview}
-                              disabled={supplementLoading}
-                              className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium
-                                         hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
-                                         transition-colors"
-                            >
-                              {supplementLoading ? '解析中...' : '預覽解析結果'}
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                          )}
+                          {supplementSuccess && (
+                            <div className="mb-3 px-3 py-2 bg-green-50 border border-green-200 rounded text-sm text-green-600">
+                              {supplementSuccess}
+                            </div>
+                          )}
 
-                      {/* Step: Preview / Conflict Resolution */}
-                      {supplementStep === 'preview' && previewData && (
-                        <div>
-                          <button
-                            onClick={() => { setSupplementStep('online'); setSupplementError(''); setPreviewData(null); }}
-                            className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
-                          >
-                            &larr; 返回修改
-                          </button>
+                          {/* Step: Input */}
+                          {supplementStep === 'input' && (
+                            <div>
+                              <p className="text-sm text-gray-500 mb-3">
+                                貼上從公司官網、面試心得、PTT、Glassdoor 等來源複製的公司資訊，
+                                AI 會整理成結構化資料（福利、面試流程、考古題、文化等）。
+                              </p>
+                              <textarea
+                                className="w-full h-40 p-3 border border-gray-300 rounded-lg
+                                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                           resize-y text-sm font-mono bg-white text-gray-800
+                                           placeholder:text-gray-400"
+                                placeholder="貼上公司相關資訊（福利制度、面試經驗、公司介紹等）..."
+                                value={rawText}
+                                onChange={(e) => setRawText(e.target.value)}
+                                maxLength={50000}
+                              />
+                              <div className="text-xs text-gray-400 text-right mt-1">
+                                {rawText.length.toLocaleString()} / 50,000
+                              </div>
+                              <div className="flex items-center gap-3 mt-3">
+                                <button
+                                  onClick={handleGoOnline}
+                                  disabled={supplementLoading}
+                                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                                             hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                             transition-colors"
+                                >
+                                  複製 Prompt 給線上 LLM
+                                </button>
+                                <button
+                                  onClick={() => { setEditingId(null); setDirtyFields(new Set()); }}
+                                  className="text-sm text-gray-400 hover:text-gray-500 transition-colors"
+                                >
+                                  取消
+                                </button>
+                              </div>
+                            </div>
+                          )}
 
-                          <h3 className="text-sm font-medium text-gray-700 mb-3">
-                            解析結果預覽
-                          </h3>
-
-                          {/* New fields */}
-                          {previewData.new_fields.length > 0 && (
-                            <div className="mb-4">
-                              <h4 className="text-xs font-medium text-green-700 mb-2">
-                                新增欄位（補充空缺）
-                              </h4>
-                              <div className="space-y-2">
-                                {previewData.new_fields.map((f) => (
-                                  <label
-                                    key={f.field}
-                                    className="flex items-start gap-3 p-2.5 bg-green-50 border border-green-200
-                                               rounded-lg cursor-pointer hover:bg-green-100/60 transition-colors"
+                          {/* Step: Online LLM flow */}
+                          {supplementStep === 'online' && (
+                            <div>
+                              <button
+                                onClick={() => { setSupplementStep('input'); setSupplementError(''); }}
+                                className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                              >
+                                &larr; 返回修改
+                              </button>
+                              <div className="mb-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h3 className="text-sm font-medium text-gray-700">
+                                    複製以下內容貼到 LLM
+                                  </h3>
+                                  <button
+                                    onClick={handleCopy}
+                                    className={`px-3 py-1 text-xs rounded border transition-colors ${
+                                      copied
+                                        ? 'bg-green-50 text-green-600 border-green-300'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                                    }`}
                                   >
-                                    <input
-                                      type="checkbox"
-                                      checked={newFieldChecked[f.field] ?? true}
-                                      onChange={(e) =>
-                                        setNewFieldChecked((prev) => ({
-                                          ...prev,
-                                          [f.field]: e.target.checked,
-                                        }))
-                                      }
-                                      className="mt-0.5 rounded text-green-600 focus:ring-green-500"
-                                    />
-                                    <span className="text-sm text-gray-600 w-24 shrink-0">{f.label}</span>
-                                    <div className="text-sm font-medium text-green-700 min-w-0 flex-1">
-                                      <FriendlyValue field={f.field} value={f.new_value} />
-                                    </div>
-                                  </label>
-                                ))}
+                                    {copied ? 'OK' : 'Copy'}
+                                  </button>
+                                </div>
+                                <pre className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg
+                                                text-xs font-mono text-gray-600 whitespace-pre-wrap
+                                                overflow-y-auto max-h-32 leading-relaxed">
+                                  {combinedPrompt}
+                                </pre>
+                              </div>
+                              <div className="mb-3 p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg text-xs text-indigo-600">
+                                <ol className="list-decimal list-inside space-y-0.5">
+                                  <li>複製上方內容</li>
+                                  <li>貼到 ChatGPT / Gemini / Claude</li>
+                                  <li>把 LLM 回覆的 JSON 貼到下方</li>
+                                </ol>
+                              </div>
+                              <textarea
+                                className="w-full h-32 p-3 border border-gray-300 rounded-lg
+                                           focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                           resize-y text-sm font-mono bg-white text-gray-800
+                                           placeholder:text-gray-400"
+                                placeholder="貼上 LLM 回覆的 JSON..."
+                                value={jsonText}
+                                onChange={(e) => setJsonText(e.target.value)}
+                              />
+                              <div className="flex gap-3 mt-3">
+                                <button
+                                  onClick={handleImportPreview}
+                                  disabled={supplementLoading}
+                                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                                             hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                             transition-colors"
+                                >
+                                  {supplementLoading ? '解析中...' : '預覽解析結果'}
+                                </button>
                               </div>
                             </div>
                           )}
 
-                          {/* Conflicts */}
-                          {previewData.conflicts.length > 0 && (
-                            <div className="mb-4">
-                              <h4 className="text-xs font-medium text-amber-700 mb-2">
-                                衝突欄位 — 請選擇要保留哪一個
-                                {unresolvedConflicts > 0 && (
-                                  <span className="ml-2 text-red-500">
-                                    ({unresolvedConflicts} 個待選擇)
-                                  </span>
-                                )}
-                              </h4>
-                              <div className="space-y-3">
-                                {previewData.conflicts.map((c) => {
-                                  const choice = conflictChoices[c.field];
-                                  return (
-                                    <div
-                                      key={c.field}
-                                      className={`p-3 rounded-lg border transition-colors ${
-                                        !choice
-                                          ? 'border-amber-300 bg-amber-50'
-                                          : 'border-gray-200 bg-gray-50'
-                                      }`}
-                                    >
-                                      <div className="text-sm font-medium text-gray-700 mb-2">
-                                        {c.label}
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        <label
-                                          className={`flex items-start gap-2 p-2 rounded border cursor-pointer
-                                            transition-colors ${
-                                            choice === 'old'
-                                              ? 'border-blue-400 bg-blue-50'
-                                              : 'border-gray-200 bg-white hover:border-gray-300'
-                                          }`}
-                                        >
-                                          <input
-                                            type="radio"
-                                            name={`conflict-${c.field}`}
-                                            checked={choice === 'old'}
-                                            onChange={() =>
-                                              setConflictChoices((prev) => ({
-                                                ...prev,
-                                                [c.field]: 'old',
-                                              }))
-                                            }
-                                            className="mt-0.5 text-blue-600 focus:ring-blue-500"
-                                          />
-                                          <div className="min-w-0">
-                                            <div className="text-[10px] text-gray-400 mb-0.5">目前值</div>
-                                            <div className="text-sm text-gray-700">
-                                              <FriendlyValue field={c.field} value={c.old_value} />
-                                            </div>
-                                          </div>
-                                        </label>
-                                        <label
-                                          className={`flex items-start gap-2 p-2 rounded border cursor-pointer
-                                            transition-colors ${
-                                            choice === 'new'
-                                              ? 'border-green-400 bg-green-50'
-                                              : 'border-gray-200 bg-white hover:border-gray-300'
-                                          }`}
-                                        >
-                                          <input
-                                            type="radio"
-                                            name={`conflict-${c.field}`}
-                                            checked={choice === 'new'}
-                                            onChange={() =>
-                                              setConflictChoices((prev) => ({
-                                                ...prev,
-                                                [c.field]: 'new',
-                                              }))
-                                            }
-                                            className="mt-0.5 text-green-600 focus:ring-green-500"
-                                          />
-                                          <div className="min-w-0">
-                                            <div className="text-[10px] text-green-600 mb-0.5">新值</div>
-                                            <div className="text-sm text-green-700">
-                                              <FriendlyValue field={c.field} value={c.new_value} />
-                                            </div>
-                                          </div>
-                                        </label>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* No changes */}
-                          {previewData.conflicts.length === 0 && previewData.new_fields.length === 0 && (
-                            <p className="text-sm text-gray-400 text-center py-6">
-                              解析後沒有新的欄位變更
-                            </p>
-                          )}
-
-                          {/* Confirm button */}
-                          {(previewData.conflicts.length > 0 || previewData.new_fields.length > 0) && (
-                            <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+                          {/* Step: Preview / Conflict Resolution */}
+                          {supplementStep === 'preview' && previewData && (
+                            <div>
                               <button
-                                onClick={handleConfirmMerge}
-                                disabled={supplementLoading || unresolvedConflicts > 0}
-                                className="px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium
-                                           hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
-                                           transition-colors"
+                                onClick={() => { setSupplementStep('online'); setSupplementError(''); setPreviewData(null); }}
+                                className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
                               >
-                                {supplementLoading ? '合併中...' : '確認合併'}
+                                &larr; 返回修改
                               </button>
-                              {unresolvedConflicts > 0 && (
-                                <span className="text-xs text-amber-600 self-center">
-                                  請先選擇所有衝突欄位
-                                </span>
+
+                              <h3 className="text-sm font-medium text-gray-700 mb-3">
+                                解析結果預覽
+                              </h3>
+
+                              {/* New fields */}
+                              {previewData.new_fields.length > 0 && (
+                                <div className="mb-4">
+                                  <h4 className="text-xs font-medium text-green-700 mb-2">
+                                    新增欄位（補充空缺）
+                                  </h4>
+                                  <div className="space-y-2">
+                                    {previewData.new_fields.map((f) => (
+                                      <label
+                                        key={f.field}
+                                        className="flex items-start gap-3 p-2.5 bg-green-50 border border-green-200
+                                                   rounded-lg cursor-pointer hover:bg-green-100/60 transition-colors"
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={newFieldChecked[f.field] ?? true}
+                                          onChange={(e) =>
+                                            setNewFieldChecked((prev) => ({
+                                              ...prev,
+                                              [f.field]: e.target.checked,
+                                            }))
+                                          }
+                                          className="mt-0.5 rounded text-green-600 focus:ring-green-500"
+                                        />
+                                        <span className="text-sm text-gray-600 w-24 shrink-0">{f.label}</span>
+                                        <div className="text-sm font-medium text-green-700 min-w-0 flex-1">
+                                          <FriendlyValue field={f.field} value={f.new_value} />
+                                        </div>
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Conflicts */}
+                              {previewData.conflicts.length > 0 && (
+                                <div className="mb-4">
+                                  <h4 className="text-xs font-medium text-amber-700 mb-2">
+                                    衝突欄位 — 請選擇要保留哪一個
+                                    {unresolvedConflicts > 0 && (
+                                      <span className="ml-2 text-red-500">
+                                        ({unresolvedConflicts} 個待選擇)
+                                      </span>
+                                    )}
+                                  </h4>
+                                  <div className="space-y-3">
+                                    {previewData.conflicts.map((c) => {
+                                      const choice = conflictChoices[c.field];
+                                      return (
+                                        <div
+                                          key={c.field}
+                                          className={`p-3 rounded-lg border transition-colors ${
+                                            !choice
+                                              ? 'border-amber-300 bg-amber-50'
+                                              : 'border-gray-200 bg-gray-50'
+                                          }`}
+                                        >
+                                          <div className="text-sm font-medium text-gray-700 mb-2">
+                                            {c.label}
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-2">
+                                            <label
+                                              className={`flex items-start gap-2 p-2 rounded border cursor-pointer
+                                                transition-colors ${
+                                                choice === 'old'
+                                                  ? 'border-blue-400 bg-blue-50'
+                                                  : 'border-gray-200 bg-white hover:border-gray-300'
+                                              }`}
+                                            >
+                                              <input
+                                                type="radio"
+                                                name={`conflict-${c.field}`}
+                                                checked={choice === 'old'}
+                                                onChange={() =>
+                                                  setConflictChoices((prev) => ({
+                                                    ...prev,
+                                                    [c.field]: 'old',
+                                                  }))
+                                                }
+                                                className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                                              />
+                                              <div className="min-w-0">
+                                                <div className="text-[10px] text-gray-400 mb-0.5">目前值</div>
+                                                <div className="text-sm text-gray-700">
+                                                  <FriendlyValue field={c.field} value={c.old_value} />
+                                                </div>
+                                              </div>
+                                            </label>
+                                            <label
+                                              className={`flex items-start gap-2 p-2 rounded border cursor-pointer
+                                                transition-colors ${
+                                                choice === 'new'
+                                                  ? 'border-green-400 bg-green-50'
+                                                  : 'border-gray-200 bg-white hover:border-gray-300'
+                                              }`}
+                                            >
+                                              <input
+                                                type="radio"
+                                                name={`conflict-${c.field}`}
+                                                checked={choice === 'new'}
+                                                onChange={() =>
+                                                  setConflictChoices((prev) => ({
+                                                    ...prev,
+                                                    [c.field]: 'new',
+                                                  }))
+                                                }
+                                                className="mt-0.5 text-green-600 focus:ring-green-500"
+                                              />
+                                              <div className="min-w-0">
+                                                <div className="text-[10px] text-green-600 mb-0.5">新值</div>
+                                                <div className="text-sm text-green-700">
+                                                  <FriendlyValue field={c.field} value={c.new_value} />
+                                                </div>
+                                              </div>
+                                            </label>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* No changes */}
+                              {previewData.conflicts.length === 0 && previewData.new_fields.length === 0 && (
+                                <p className="text-sm text-gray-400 text-center py-6">
+                                  解析後沒有新的欄位變更
+                                </p>
+                              )}
+
+                              {/* Confirm button */}
+                              {(previewData.conflicts.length > 0 || previewData.new_fields.length > 0) && (
+                                <div className="flex gap-3 mt-3 pt-3 border-t border-gray-100">
+                                  <button
+                                    onClick={handleConfirmMerge}
+                                    disabled={supplementLoading || unresolvedConflicts > 0}
+                                    className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
+                                               hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                                               transition-colors"
+                                  >
+                                    {supplementLoading ? '合併中...' : '確認合併'}
+                                  </button>
+                                  {unresolvedConflicts > 0 && (
+                                    <span className="text-xs text-amber-600 self-center">
+                                      請先選擇所有衝突欄位
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
                           )}
                         </div>
                       )}
                     </div>
-                  ) : (
-                    /* ── Edit mode (empty/filled split) ── */
-                    <CompanyEditPanel
-                      company={company}
-                      editForm={editForm}
-                      dirtyFields={dirtyFields}
-                      editSectionOpen={editSectionOpen}
-                      saving={saving}
-                      onFieldChange={handleFieldChange}
-                      onToggleEditSection={() => setEditSectionOpen(!editSectionOpen)}
-                      onSave={() => handleSave(company.id)}
-                      onCancel={() => { setEditingId(null); setDirtyFields(new Set()); }}
-                    />
                   )}
                 </div>
               )}
