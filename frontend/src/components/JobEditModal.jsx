@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { X, ArrowLeft, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { supplementJob, previewSupplement, updateJob, fetchPromptTemplate } from '../api';
 
 const SALARY_TYPE_OPTIONS = [
@@ -347,32 +348,32 @@ export default function JobEditModal({ job, onSave, onClose }) {
     : 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 my-auto">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/30 backdrop-blur-sm overflow-y-auto py-8">
+      <div className="bg-white rounded-xl shadow-card-active w-full max-w-2xl mx-4 my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-200">
           <div>
-            <h2 className="text-lg font-semibold text-gray-800">編輯職缺</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h2 className="text-lg font-semibold text-surface-800">編輯職缺</h2>
+            <p className="text-sm text-surface-500 mt-0.5">
               {job.title} - {job.company}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none px-1"
+            className="text-surface-400 hover:text-surface-600 transition-colors"
           >
-            x
+            <X size={20} />
           </button>
         </div>
 
         {/* Status — independent quick-access */}
-        <div className="px-6 py-3 border-b border-gray-200 flex items-center gap-3">
-          <label className="text-sm font-medium text-gray-700 shrink-0">投遞狀態</label>
+        <div className="px-6 py-3 border-b border-surface-200 flex items-center gap-3">
+          <label className="text-sm font-medium text-surface-700 shrink-0">投遞狀態</label>
           <select
             value={statusValue}
             onChange={(e) => setStatusValue(e.target.value)}
-            className="px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            className="px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                       focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -382,8 +383,8 @@ export default function JobEditModal({ job, onSave, onClose }) {
             <button
               onClick={handleStatusSave}
               disabled={statusSaving}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded
-                         hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-white bg-primary-600 rounded
+                         hover:bg-primary-700 disabled:opacity-50 transition-colors"
             >
               {statusSaving ? '儲存中...' : '儲存'}
             </button>
@@ -391,7 +392,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
         </div>
 
         {/* Tab navigation */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-surface-200">
           {[
             { key: 'manual', label: '手動填寫', badge: emptyFields.length > 0 ? `${emptyFields.length} 待填` : null },
             { key: 'supplement', label: '補充資料' },
@@ -401,8 +402,8 @@ export default function JobEditModal({ job, onSave, onClose }) {
               onClick={() => { setActiveTab(tab.key); setError(''); setSuccess(''); }}
               className={`flex-1 px-4 py-3 text-sm font-medium transition-colors
                 ${activeTab === tab.key
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'text-primary-600 border-b-2 border-primary-600 bg-primary-50/50'
+                  : 'text-surface-500 hover:text-surface-700'
                 }`}
             >
               {tab.label}
@@ -458,12 +459,12 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 <div>
                   <button
                     onClick={() => setEditSectionOpen(!editSectionOpen)}
-                    className="flex items-center gap-2 text-sm font-medium text-gray-500
-                               hover:text-gray-700 transition-colors mb-2 w-full"
+                    className="flex items-center gap-2 text-sm font-medium text-surface-500
+                               hover:text-surface-700 transition-colors mb-2 w-full"
                   >
-                    <span className="text-xs">{editSectionOpen ? '▼' : '▶'}</span>
+                    <span>{editSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
                     修正已有資料 ({filledFields.length} 個欄位)
-                    <span className="text-xs text-gray-400 font-normal ml-1">
+                    <span className="text-xs text-surface-400 font-normal ml-1">
                       修正 LLM 解析錯誤
                     </span>
                   </button>
@@ -490,14 +491,14 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 <button
                   onClick={handleManualSave}
                   disabled={loading || dirtyFields.size === 0}
-                  className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                             hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                  className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                             hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                              transition-colors"
                 >
                   {loading ? '儲存中...' : '儲存修改'}
                 </button>
                 {dirtyFields.size > 0 && (
-                  <span className="text-xs text-gray-400 self-center">
+                  <span className="text-xs text-surface-400 self-center">
                     已修改 {dirtyFields.size} 個欄位
                   </span>
                 )}
@@ -511,28 +512,28 @@ export default function JobEditModal({ job, onSave, onClose }) {
               {/* Step: Input raw text */}
               {supplementStep === 'input' && (
                 <div>
-                  <p className="text-sm text-gray-500 mb-3">
+                  <p className="text-sm text-surface-500 mb-3">
                     貼上從其他來源複製的職缺補充資訊，系統會先預覽解析結果，再讓你確認合併。
                   </p>
                   <textarea
-                    className="w-full h-40 p-3 border border-gray-300 rounded-lg
-                               focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                               resize-y text-sm font-mono bg-white text-gray-800
-                               placeholder:text-gray-400"
+                    className="w-full h-40 p-3 border border-surface-300 rounded-lg
+                               focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                               resize-y text-sm font-mono bg-white text-surface-800
+                               placeholder:text-surface-400"
                     placeholder="貼上補充的職缺資訊..."
                     value={rawText}
                     onChange={(e) => setRawText(e.target.value)}
                     maxLength={50000}
                   />
-                  <div className="text-xs text-gray-400 text-right mt-1">
+                  <div className="text-xs text-surface-400 text-right mt-1">
                     {rawText.length.toLocaleString()} / 50,000
                   </div>
                   <div className="flex items-center gap-3 mt-3">
                     <button
                       onClick={handleGoOnline}
                       disabled={loading}
-                      className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                                 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                      className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                                 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                  transition-colors"
                     >
                       複製 Prompt 給線上 LLM
@@ -540,7 +541,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                     <button
                       onClick={handleLocalPreview}
                       disabled={loading}
-                      className="text-sm text-gray-400 hover:text-gray-500
+                      className="text-sm text-surface-400 hover:text-surface-500
                                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {loading ? '解析中...' : '本地模型解析'}
@@ -554,13 +555,13 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 <div>
                   <button
                     onClick={() => { setSupplementStep('input'); setError(''); }}
-                    className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                    className="text-sm text-surface-400 hover:text-surface-600 mb-3 transition-colors"
                   >
-                    &larr; 返回修改
+                    <ArrowLeft size={14} className="inline-block mr-1" />返回修改
                   </button>
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-medium text-gray-700">
+                      <h3 className="text-sm font-medium text-surface-700">
                         複製以下內容貼到 LLM
                       </h3>
                       <button
@@ -568,19 +569,19 @@ export default function JobEditModal({ job, onSave, onClose }) {
                         className={`px-3 py-1 text-xs rounded border transition-colors ${
                           copied
                             ? 'bg-green-50 text-green-600 border-green-300'
-                            : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+                            : 'bg-white text-surface-600 border-surface-300 hover:border-primary-400'
                         }`}
                       >
                         {copied ? 'OK' : 'Copy'}
                       </button>
                     </div>
-                    <pre className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg
-                                    text-xs font-mono text-gray-600 whitespace-pre-wrap
+                    <pre className="w-full p-3 bg-surface-50 border border-surface-200 rounded-lg
+                                    text-xs font-mono text-surface-600 whitespace-pre-wrap
                                     overflow-y-auto max-h-32 leading-relaxed">
                       {combinedPrompt}
                     </pre>
                   </div>
-                  <div className="mb-3 p-2.5 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-600">
+                  <div className="mb-3 p-2.5 bg-primary-50 border border-blue-100 rounded-lg text-xs text-primary-600">
                     <ol className="list-decimal list-inside space-y-0.5">
                       <li>複製上方內容</li>
                       <li>貼到 ChatGPT / Gemini / Claude</li>
@@ -588,10 +589,10 @@ export default function JobEditModal({ job, onSave, onClose }) {
                     </ol>
                   </div>
                   <textarea
-                    className="w-full h-32 p-3 border border-gray-300 rounded-lg
-                               focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                               resize-y text-sm font-mono bg-white text-gray-800
-                               placeholder:text-gray-400"
+                    className="w-full h-32 p-3 border border-surface-300 rounded-lg
+                               focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                               resize-y text-sm font-mono bg-white text-surface-800
+                               placeholder:text-surface-400"
                     placeholder="貼上 LLM 回覆的 JSON..."
                     value={jsonText}
                     onChange={(e) => setJsonText(e.target.value)}
@@ -600,8 +601,8 @@ export default function JobEditModal({ job, onSave, onClose }) {
                     <button
                       onClick={handleImportPreview}
                       disabled={loading}
-                      className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                                 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                      className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                                 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                  transition-colors"
                     >
                       {loading ? '解析中...' : '預覽解析結果'}
@@ -615,12 +616,12 @@ export default function JobEditModal({ job, onSave, onClose }) {
                 <div>
                   <button
                     onClick={() => { setSupplementStep('input'); setError(''); setPreviewData(null); }}
-                    className="text-sm text-gray-400 hover:text-gray-600 mb-3 transition-colors"
+                    className="text-sm text-surface-400 hover:text-surface-600 mb-3 transition-colors"
                   >
-                    &larr; 返回修改
+                    <ArrowLeft size={14} className="inline-block mr-1" />返回修改
                   </button>
 
-                  <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  <h3 className="text-sm font-medium text-surface-700 mb-3">
                     解析結果預覽
                   </h3>
 
@@ -648,7 +649,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                               }
                               className="rounded text-green-600 focus:ring-green-500"
                             />
-                            <span className="text-sm text-gray-600 w-24 shrink-0">{f.label}</span>
+                            <span className="text-sm text-surface-600 w-24 shrink-0">{f.label}</span>
                             <span className="text-sm font-medium text-green-700">
                               {displayValue(f.new_value)}
                             </span>
@@ -678,10 +679,10 @@ export default function JobEditModal({ job, onSave, onClose }) {
                               className={`p-3 rounded-lg border transition-colors ${
                                 !choice
                                   ? 'border-amber-300 bg-amber-50'
-                                  : 'border-gray-200 bg-gray-50'
+                                  : 'border-surface-200 bg-surface-50'
                               }`}
                             >
-                              <div className="text-sm font-medium text-gray-700 mb-2">
+                              <div className="text-sm font-medium text-surface-700 mb-2">
                                 {c.label}
                               </div>
                               <div className="grid grid-cols-2 gap-2">
@@ -690,8 +691,8 @@ export default function JobEditModal({ job, onSave, onClose }) {
                                   className={`flex items-start gap-2 p-2 rounded border cursor-pointer
                                     transition-colors ${
                                     choice === 'old'
-                                      ? 'border-blue-400 bg-blue-50'
-                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                      ? 'border-primary-400 bg-primary-50'
+                                      : 'border-surface-200 bg-white hover:border-surface-300'
                                   }`}
                                 >
                                   <input
@@ -704,11 +705,11 @@ export default function JobEditModal({ job, onSave, onClose }) {
                                         [c.field]: 'old',
                                       }))
                                     }
-                                    className="mt-0.5 text-blue-600 focus:ring-blue-500"
+                                    className="mt-0.5 text-primary-600 focus:ring-primary-500"
                                   />
                                   <div>
-                                    <div className="text-[10px] text-gray-400 mb-0.5">目前值</div>
-                                    <div className="text-sm text-gray-700 break-all">
+                                    <div className="text-[10px] text-surface-400 mb-0.5">目前值</div>
+                                    <div className="text-sm text-surface-700 break-all">
                                       {displayValue(c.old_value)}
                                     </div>
                                   </div>
@@ -720,7 +721,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                                     transition-colors ${
                                     choice === 'new'
                                       ? 'border-green-400 bg-green-50'
-                                      : 'border-gray-200 bg-white hover:border-gray-300'
+                                      : 'border-surface-200 bg-white hover:border-surface-300'
                                   }`}
                                 >
                                   <input
@@ -752,7 +753,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
 
                   {/* No changes */}
                   {previewData.conflicts.length === 0 && previewData.new_fields.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-6">
+                    <p className="text-sm text-surface-400 text-center py-6">
                       解析後沒有新的欄位變更
                     </p>
                   )}
@@ -763,8 +764,8 @@ export default function JobEditModal({ job, onSave, onClose }) {
                       <button
                         onClick={handleConfirmMerge}
                         disabled={loading || unresolvedConflicts > 0}
-                        className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium
-                                   hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+                        className="px-5 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium
+                                   hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                    transition-colors"
                       >
                         {loading ? '合併中...' : '確認合併'}
@@ -793,16 +794,16 @@ function FieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
   const displayVal = value ?? '';
   return (
     <div className={`flex items-start gap-3 p-2.5 rounded-lg transition-colors
-                     ${isEmpty ? 'bg-amber-50/50 border border-amber-200' : 'bg-gray-50 border border-gray-200'}
-                     ${isDirty ? 'ring-2 ring-blue-300' : ''}`}>
+                     ${isEmpty ? 'bg-amber-50/50 border border-amber-200' : 'bg-surface-50 border border-surface-200'}
+                     ${isDirty ? 'ring-2 ring-primary-300' : ''}`}>
       <div className="w-28 shrink-0 pt-1.5">
-        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+        <label className="text-sm font-medium text-surface-700">{field.label}</label>
         {meta && (
           <div className="flex items-center gap-1 mt-0.5">
-            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
+            <span className="text-[10px] px-1 py-px rounded bg-surface-100 text-surface-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
-            <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
+            <span className="text-[10px] text-surface-400">{formatTimestamp(meta.updated_at)}</span>
           </div>
         )}
       </div>
@@ -818,21 +819,21 @@ function FieldInput({ field, value, onChange, isDirty, meta, isEmpty }) {
 function EditFieldInput({ field, currentValue, editValue, onChange, isDirty, meta }) {
   const displayVal = editValue ?? '';
   return (
-    <div className={`p-2.5 rounded-lg transition-colors bg-gray-50 border border-gray-200
-                     ${isDirty ? 'ring-2 ring-blue-300' : ''}`}>
+    <div className={`p-2.5 rounded-lg transition-colors bg-surface-50 border border-surface-200
+                     ${isDirty ? 'ring-2 ring-primary-300' : ''}`}>
       <div className="flex items-center gap-2 mb-1.5">
-        <label className="text-sm font-medium text-gray-700">{field.label}</label>
+        <label className="text-sm font-medium text-surface-700">{field.label}</label>
         {meta && (
           <>
-            <span className="text-[10px] px-1 py-px rounded bg-gray-100 text-gray-400">
+            <span className="text-[10px] px-1 py-px rounded bg-surface-100 text-surface-400">
               {SOURCE_LABELS[meta.source] || meta.source}
             </span>
-            <span className="text-[10px] text-gray-400">{formatTimestamp(meta.updated_at)}</span>
+            <span className="text-[10px] text-surface-400">{formatTimestamp(meta.updated_at)}</span>
           </>
         )}
       </div>
       {/* Current value display */}
-      <div className="mb-1.5 px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-500 break-all">
+      <div className="mb-1.5 px-2 py-1 bg-white border border-surface-200 rounded text-xs text-surface-500 break-all">
         目前：{displayValue(currentValue)}
       </div>
       {/* Edit input */}
@@ -849,8 +850,8 @@ function InputWidget({ field, value, onChange, placeholder }) {
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                   focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+        className="w-full px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                   focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
       >
         <option value="">-- 未選擇 --</option>
         {field.options.map((opt) => (
@@ -864,8 +865,8 @@ function InputWidget({ field, value, onChange, placeholder }) {
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                   focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
+        className="w-full px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                   focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-y"
         rows={field.rows || 3}
         placeholder={placeholder}
       />
@@ -876,8 +877,8 @@ function InputWidget({ field, value, onChange, placeholder }) {
       type={field.type === 'number' ? 'number' : 'text'}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded
-                 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      className="w-full px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                 focus:ring-2 focus:ring-primary-500 focus:border-transparent"
       placeholder={placeholder}
     />
   );

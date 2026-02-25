@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ArrowLeft, Copy, Check } from 'lucide-react';
 import { parseJobs, importJobs, fetchPromptTemplate } from '../api';
 
 const RAW_PLACEHOLDER = `貼上職缺資訊，例如：
@@ -132,20 +133,20 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       {/* ── Step 1: 貼上原始文字 ── */}
       {step === 'input' && (
         <div>
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">
+          <h2 className="text-lg font-semibold text-surface-700 mb-2">
             貼上職缺資訊
           </h2>
           <textarea
-            className="w-full h-64 p-4 border border-gray-300 rounded-lg
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       resize-y text-sm font-mono bg-white text-gray-800
-                       placeholder:text-gray-400"
+            className="w-full h-64 p-4 border border-surface-300 rounded-lg
+                       focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                       resize-y text-sm font-mono bg-white text-surface-800
+                       placeholder:text-surface-400"
             placeholder={RAW_PLACEHOLDER}
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}
             maxLength={50000}
           />
-          <div className="text-xs text-gray-400 text-right mt-1">
+          <div className="text-xs text-surface-400 text-right mt-1">
             {rawText.length.toLocaleString()} / 50,000
           </div>
 
@@ -156,8 +157,8 @@ export default function JobInput({ onParsed, loading, setLoading }) {
             <button
               onClick={handleGoOnline}
               disabled={loading}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium
-                         hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+              className="px-6 py-2.5 bg-primary-600 text-white rounded-lg font-medium
+                         hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors"
             >
               複製 Prompt 給線上 LLM
@@ -165,7 +166,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
             <button
               onClick={handleLocalParse}
               disabled={loading}
-              className="text-sm text-gray-400 hover:text-gray-500
+              className="text-sm text-surface-400 hover:text-surface-500
                          disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors"
             >
@@ -181,15 +182,15 @@ export default function JobInput({ onParsed, loading, setLoading }) {
           {/* 返回 */}
           <button
             onClick={handleBack}
-            className="text-sm text-gray-400 hover:text-gray-600 mb-4 transition-colors"
+            className="text-sm text-surface-400 hover:text-surface-600 mb-4 transition-colors"
           >
-            &larr; 返回修改
+            <ArrowLeft size={14} className="inline-block mr-1" />返回修改
           </button>
 
           {/* 組合好的 prompt */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-gray-700">
+              <h2 className="text-lg font-semibold text-surface-700">
                 複製以下內容貼到 LLM
               </h2>
               <button
@@ -197,22 +198,22 @@ export default function JobInput({ onParsed, loading, setLoading }) {
                 className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                   copied
                     ? 'bg-green-50 text-green-600 border-green-300'
-                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                    : 'bg-white text-surface-600 border-surface-300 hover:border-primary-400 hover:text-primary-600'
                 }`}
               >
-                {copied ? 'OK' : 'Copy'}
+                {copied ? <><Check size={14} className="inline-block mr-1" />已複製</> : <><Copy size={14} className="inline-block mr-1" />複製</>}
               </button>
             </div>
-            <pre className="w-full p-4 bg-gray-50 border border-gray-200 rounded-lg
-                            text-xs font-mono text-gray-700 whitespace-pre-wrap
+            <pre className="w-full p-4 bg-surface-50 border border-surface-200 rounded-lg
+                            text-xs font-mono text-surface-700 whitespace-pre-wrap
                             overflow-y-auto max-h-64 leading-relaxed">
               {combinedPrompt}
             </pre>
           </div>
 
           {/* 步驟提示 */}
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
-            <ol className="list-decimal list-inside space-y-0.5 text-blue-600">
+          <div className="mb-4 p-3 bg-primary-50 border border-primary-100 rounded-lg text-sm text-primary-700">
+            <ol className="list-decimal list-inside space-y-0.5 text-primary-600">
               <li>複製上方內容</li>
               <li>貼到 ChatGPT / Gemini / Claude</li>
               <li>把 LLM 回覆的 JSON 貼到下方</li>
@@ -220,14 +221,14 @@ export default function JobInput({ onParsed, loading, setLoading }) {
           </div>
 
           {/* JSON 貼回區 */}
-          <h3 className="text-sm font-medium text-gray-600 mb-1">
+          <h3 className="text-sm font-medium text-surface-600 mb-1">
             貼上 LLM 回覆的 JSON
           </h3>
           <textarea
-            className="w-full h-48 p-4 border border-gray-300 rounded-lg
-                       focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                       resize-y text-sm font-mono bg-white text-gray-800
-                       placeholder:text-gray-400"
+            className="w-full h-48 p-4 border border-surface-300 rounded-lg
+                       focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                       resize-y text-sm font-mono bg-white text-surface-800
+                       placeholder:text-surface-400"
             placeholder={JSON_PLACEHOLDER}
             value={jsonText}
             onChange={(e) => setJsonText(e.target.value)}
@@ -237,16 +238,16 @@ export default function JobInput({ onParsed, loading, setLoading }) {
             <button
               onClick={handleImport}
               disabled={loading}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-medium
-                         hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
+              className="px-6 py-2.5 bg-primary-600 text-white rounded-lg font-medium
+                         hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors"
             >
               {loading ? '匯入中...' : '匯入'}
             </button>
             <button
               onClick={() => setJsonText('')}
-              className="px-4 py-2.5 bg-gray-100 text-gray-600 rounded-lg
-                         hover:bg-gray-200 transition-colors"
+              className="px-4 py-2.5 bg-surface-100 text-surface-600 rounded-lg
+                         hover:bg-surface-200 transition-colors"
             >
               清除
             </button>
