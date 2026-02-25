@@ -74,10 +74,18 @@ export default function SkillPicker() {
 
   if (skills.length === 0) {
     return (
-      <div className="mt-8 p-6 bg-surface-50 rounded-xl text-center">
-        <p className="text-surface-400 text-sm">
-          尚無技能資料。先在「輸入職缺」頁新增職缺，系統會自動從中萃取技能關鍵字。
+      <div>
+        <h3 className="text-lg font-semibold text-surface-700 mb-1">
+          技能匹配
+        </h3>
+        <p className="text-sm text-surface-400 mb-4">
+          點擊技能切換分類：未選 → 已會 → 可補強 → 未選
         </p>
+        <div className="p-6 bg-surface-50 rounded-xl text-center">
+          <p className="text-surface-400 text-sm">
+            尚無技能資料。先在「輸入職缺」頁新增職缺，系統會自動從中萃取技能關鍵字。
+          </p>
+        </div>
       </div>
     );
   }
@@ -91,8 +99,8 @@ export default function SkillPicker() {
   const hasDirty = Object.keys(dirty).length > 0;
 
   return (
-    <div className="mt-8">
-      <h3 className="text-base font-semibold text-surface-700 mb-1">
+    <div>
+      <h3 className="text-lg font-semibold text-surface-700 mb-1">
         技能匹配
       </h3>
       <p className="text-sm text-surface-400 mb-4">
