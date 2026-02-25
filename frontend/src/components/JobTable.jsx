@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
   Clock, DollarSign, ClipboardList, Zap,
-  ChevronUp, ChevronDown, ClipboardX, Pencil, Trash2, History, X, AlertTriangle,
+  ChevronUp, ChevronDown, ClipboardX, Pencil, Trash2, History, X, AlertTriangle, Check,
 } from 'lucide-react';
 import JobEditModal from './JobEditModal';
+import { updateJob } from '../api';
 
 const SORT_OPTIONS = [
   { key: 'created_at', label: '加入時間', icon: Clock },
@@ -246,6 +247,9 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, 
   const [expandedId, setExpandedId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
   const [historyJob, setHistoryJob] = useState(null);
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [noteText, setNoteText] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
 
   function handleSort(key) {
     if (sortBy === key) {
@@ -253,6 +257,19 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, 
     } else {
       const defaultOrder = key === 'status' ? 'asc' : 'desc';
       onSortChange(key, defaultOrder);
+    }
+  }
+
+  async function handleNoteSave(jobId) {
+    setNoteSaving(true);
+    try {
+      const updated = await updateJob(jobId, { notes: noteText || null });
+      setEditingNoteId(null);
+      if (onJobUpdated) onJobUpdated(updated);
+    } catch {
+      // keep editor open on error
+    } finally {
+      setNoteSaving(false);
     }
   }
 
@@ -720,12 +737,57 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, 
                         </a>
                       </div>
                     )}
-                    {job.notes && (
-                      <div className="col-span-2">
-                        <span className="text-surface-400">備註：</span>
-                        <span className="text-surface-700">{job.notes}</span>
-                      </div>
-                    )}
+                    {/* Notes — inline edit */}
+                    <div className="col-span-2">
+                      {editingNoteId === job.id ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <span className="text-surface-400 text-sm">備註：</span>
+                          <div className="flex items-start gap-2 mt-1">
+                            <textarea
+                              className="flex-1 px-2.5 py-1.5 text-sm border border-surface-300 rounded
+                                         focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                                         resize-y bg-white text-surface-800"
+                              rows={2}
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              placeholder="輸入備註..."
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleNoteSave(job.id)}
+                              disabled={noteSaving}
+                              className="px-2.5 py-1.5 text-sm font-medium text-white bg-primary-600 rounded
+                                         hover:bg-primary-700 disabled:opacity-50 transition-colors shrink-0"
+                            >
+                              {noteSaving ? '...' : <Check size={14} />}
+                            </button>
+                            <button
+                              onClick={() => setEditingNoteId(null)}
+                              className="px-2 py-1.5 text-sm text-surface-400 hover:text-surface-600
+                                         transition-colors shrink-0"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-1">
+                          <span className="text-surface-400">備註：</span>
+                          <span className="text-surface-700">{job.notes || <span className="text-surface-300 italic">無</span>}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingNoteId(job.id);
+                              setNoteText(job.notes || '');
+                            }}
+                            className="ml-1 text-surface-300 hover:text-primary-500 transition-colors shrink-0"
+                            title="編輯備註"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     {job.raw_text && (
                       <details className="col-span-2 mt-2">
                         <summary className="text-surface-400 cursor-pointer hover:text-surface-600">

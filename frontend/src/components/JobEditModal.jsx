@@ -61,7 +61,6 @@ const EDITABLE_FIELDS = [
   { key: 'remote_type', label: '遠端類型', type: 'select', options: REMOTE_OPTIONS },
   { key: 'work_hours', label: '上班時間', type: 'text' },
   { key: 'leave_policy', label: '休假制度', type: 'text' },
-  { key: 'benefits', label: '福利', type: 'text' },
   { key: 'language', label: '語文條件', type: 'text' },
   { key: 'source_url', label: '來源連結', type: 'text' },
   { key: 'notes', label: '備註', type: 'text' },
@@ -156,9 +155,13 @@ export default function JobEditModal({ job, onSave, onClose }) {
   async function handleStatusSave() {
     if (statusValue === job.status) return;
     setStatusSaving(true);
+    setError('');
+    setSuccess('');
     try {
       const updated = await updateJob(job.id, { status: statusValue });
+      setSuccess('儲存成功');
       onSave(updated);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -170,9 +173,13 @@ export default function JobEditModal({ job, onSave, onClose }) {
   async function handleWorkloadSave() {
     if (workloadValue === (job.workload || '')) return;
     setWorkloadSaving(true);
+    setError('');
+    setSuccess('');
     try {
       const updated = await updateJob(job.id, { workload: workloadValue || null });
+      setSuccess('儲存成功');
       onSave(updated);
+      contentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(e.message);
     } finally {
