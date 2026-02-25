@@ -36,14 +36,6 @@ const REMOTE_OPTIONS = [
   { value: 'remote', label: '遠端' },
 ];
 
-const PRIORITY_OPTIONS = [
-  { value: 1, label: '1 - 最高' },
-  { value: 2, label: '2 - 高' },
-  { value: 3, label: '3 - 中' },
-  { value: 4, label: '4 - 低' },
-  { value: 5, label: '5 - 最低' },
-];
-
 const STATUS_OPTIONS = [
   { value: 'not_applied', label: '未投遞' },
   { value: 'applied', label: '已投遞' },
@@ -74,13 +66,12 @@ const EDITABLE_FIELDS = [
   { key: 'language', label: '語文條件', type: 'text' },
   { key: 'source_url', label: '來源連結', type: 'text' },
   { key: 'notes', label: '備註', type: 'text' },
-  { key: 'priority', label: '優先順序', type: 'select', options: PRIORITY_OPTIONS },
 ];
 
 // Lookup maps for displaying enum values in Chinese
 const ENUM_DISPLAY = Object.fromEntries(
   [SALARY_TYPE_OPTIONS, JOB_TYPE_OPTIONS, WORKLOAD_OPTIONS,
-   EDUCATION_OPTIONS, REMOTE_OPTIONS, PRIORITY_OPTIONS, STATUS_OPTIONS]
+   EDUCATION_OPTIONS, REMOTE_OPTIONS, STATUS_OPTIONS]
     .flat()
     .map((o) => [String(o.value), o.label])
 );
