@@ -1,10 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { User, PenLine, LayoutList, Building2 } from 'lucide-react';
 import JobInput from './components/JobInput';
 import JobTable from './components/JobTable';
 import ProfileSettings from './components/ProfileSettings';
 import CompanyManager from './components/CompanyManager';
 import { fetchJobs, deleteJob, deleteAllJobs, fetchStatus, fetchCities } from './api';
+
+function LogoIcon({ size = 28 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="32" height="32" rx="8" className="fill-primary-600" />
+      <circle cx="16" cy="16" r="7" stroke="white" strokeWidth="2" fill="none" />
+      <circle cx="16" cy="16" r="2.5" fill="white" />
+      <line x1="16" y1="6" x2="16" y2="11" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="16" y1="21" x2="16" y2="26" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="6" y1="16" x2="11" y2="16" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="21" y1="16" x2="26" y2="16" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 export default function App() {
   const [jobs, setJobs] = useState([]);
@@ -110,9 +125,13 @@ export default function App() {
       <header className="bg-white/80 backdrop-blur-xl border-b border-surface-200/60 sticky top-0 z-10 shadow-header">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-surface-800 tracking-tight">
-              FindYourJob
-            </h1>
+            <div className="flex items-center gap-2.5">
+              <LogoIcon size={28} />
+              <h1 className="text-xl tracking-tight">
+                <span className="font-medium text-surface-500">Find</span>
+                <span className="font-bold text-primary-700">YourJob</span>
+              </h1>
+            </div>
             {status && (
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
                 status.ollama_available
@@ -134,21 +153,30 @@ export default function App() {
                     setView(item.key);
                     if (item.key === 'table') loadJobs();
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm
-                              font-medium transition-all duration-200
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm
+                              font-medium transition-colors duration-200
                     ${isActive
-                      ? 'bg-white text-primary-700 shadow-sm'
-                      : 'text-surface-500 hover:text-surface-700 hover:bg-white/50'
+                      ? 'text-primary-700'
+                      : 'text-surface-500 hover:text-surface-700'
                     }`}
                 >
-                  <Icon size={16} strokeWidth={isActive ? 2.25 : 1.75} />
-                  {item.label}
-                  {item.badge && (
-                    <span className="bg-primary-100 text-primary-700 text-xs
-                                      px-1.5 py-0.5 rounded-full font-medium">
-                      {item.badge}
-                    </span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-pill"
+                      className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
                   )}
+                  <span className="relative flex items-center gap-2">
+                    <Icon size={16} strokeWidth={isActive ? 2.25 : 1.75} />
+                    {item.label}
+                    {item.badge && (
+                      <span className="bg-primary-100 text-primary-700 text-xs
+                                        px-1.5 py-0.5 rounded-full font-medium">
+                        {item.badge}
+                      </span>
+                    )}
+                  </span>
                 </button>
               );
             })}
