@@ -93,7 +93,7 @@ export default function App() {
     }
   }
 
-  function handleViewCompany(companyId) {
+  function handleViewCompany() {
     setView('companies');
   }
 
@@ -190,7 +190,6 @@ export default function App() {
               sortBy={sortBy}
               order={order}
               onSortChange={handleSortChange}
-              onRefresh={loadJobs}
               onDelete={handleDelete}
               onJobUpdated={handleJobUpdated}
               onViewCompany={handleViewCompany}
@@ -202,7 +201,7 @@ export default function App() {
         )}
 
         {view === 'companies' && (
-          <CompanyManager onNavigateToJob={(jobId) => setView('table')} />
+          <CompanyManager />
         )}
       </main>
     </div>

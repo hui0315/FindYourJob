@@ -116,167 +116,176 @@ export default function ProfileSettings({ onSaved }) {
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <h2 className="text-lg font-semibold text-surface-700 mb-1">
-        我的條件
-      </h2>
-      <p className="text-sm text-surface-400 mb-6">
-        設定你的硬性條件，系統會在職缺不符合時自動警告
-      </p>
+    <div className="w-full max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+        {/* ── Left column: conditions form (sticky on desktop) ── */}
+        <div className="lg:col-span-2 lg:sticky lg:top-24">
+          <div className="bg-white border border-surface-200/80 rounded-2xl shadow-card p-6">
+            <h2 className="text-lg font-semibold text-surface-700 mb-1">
+              我的條件
+            </h2>
+            <p className="text-sm text-surface-400 mb-6">
+              設定硬性條件，系統會在職缺不符合時自動警告
+            </p>
 
-      {/* Currently saved conditions summary */}
-      {savedProfile && hasSavedConditions(savedProfile) && (
-        <div className="mb-6 bg-primary-50 border border-primary-200 rounded-lg px-4 py-3">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">
-            目前已儲存的條件
-          </h3>
-          <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-primary-700">
-            {savedProfile.experience_years !== '' && (
-              <span>年資：{savedProfile.experience_years} 年</span>
+            {/* Currently saved conditions summary */}
+            {savedProfile && hasSavedConditions(savedProfile) && (
+              <div className="mb-6 bg-primary-50 border border-primary-200 rounded-lg px-4 py-3">
+                <h3 className="text-sm font-medium text-blue-800 mb-2">
+                  目前已儲存的條件
+                </h3>
+                <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-primary-700">
+                  {savedProfile.experience_years !== '' && (
+                    <span>年資：{savedProfile.experience_years} 年</span>
+                  )}
+                  {savedProfile.education && (
+                    <span>學歷：{EDUCATION_LABEL[savedProfile.education] || savedProfile.education}</span>
+                  )}
+                  {savedProfile.preferred_job_types.length > 0 && (
+                    <span>類型：{savedProfile.preferred_job_types.map((v) => JOB_TYPE_LABEL[v] || v).join('、')}</span>
+                  )}
+                  {savedProfile.preferred_remote_types.length > 0 && (
+                    <span>遠端：{savedProfile.preferred_remote_types.map((v) => REMOTE_TYPE_LABEL[v] || v).join('、')}</span>
+                  )}
+                </div>
+              </div>
             )}
-            {savedProfile.education && (
-              <span>學歷：{EDUCATION_LABEL[savedProfile.education] || savedProfile.education}</span>
+
+            {savedProfile && !hasSavedConditions(savedProfile) && (
+              <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+                <p className="text-sm text-yellow-700">
+                  尚未儲存任何條件。設定下方欄位後點擊「儲存條件」。
+                </p>
+              </div>
             )}
-            {savedProfile.preferred_job_types.length > 0 && (
-              <span>類型：{savedProfile.preferred_job_types.map((v) => JOB_TYPE_LABEL[v] || v).join('、')}</span>
-            )}
-            {savedProfile.preferred_remote_types.length > 0 && (
-              <span>遠端：{savedProfile.preferred_remote_types.map((v) => REMOTE_TYPE_LABEL[v] || v).join('、')}</span>
-            )}
-          </div>
-        </div>
-      )}
 
-      {savedProfile && !hasSavedConditions(savedProfile) && (
-        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
-          <p className="text-sm text-yellow-700">
-            尚未儲存任何條件。設定下方欄位後點擊「儲存條件」。
-          </p>
-        </div>
-      )}
-
-      <div className="space-y-6">
-        {/* Experience */}
-        <div>
-          <label className="block text-sm font-medium text-surface-600 mb-1">
-            工作年資
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min="0"
-              max="50"
-              className="w-24 px-3 py-2 border border-surface-300 rounded-lg
-                         focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                         bg-white text-surface-800"
-              placeholder="例: 3"
-              value={profile.experience_years}
-              onChange={(e) => handleChange('experience_years', e.target.value)}
-            />
-            <span className="text-sm text-surface-500">年</span>
-          </div>
-        </div>
-
-        {/* Education */}
-        <div>
-          <label className="block text-sm font-medium text-surface-600 mb-1">
-            最高學歷
-          </label>
-          <select
-            className="w-48 px-3 py-2 border border-surface-300 rounded-lg
-                       focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                       bg-white text-surface-800"
-            value={profile.education}
-            onChange={(e) => handleChange('education', e.target.value)}
-          >
-            {EDUCATION_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Job Type — multi-select checkboxes */}
-        <div>
-          <label className="block text-sm font-medium text-surface-600 mb-2">
-            工作類型（可複選）
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {JOB_TYPE_OPTIONS.map((opt) => {
-              const checked = profile.preferred_job_types.includes(opt.value);
-              return (
-                <label
-                  key={opt.value}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
-                             transition-colors select-none text-sm
-                             ${checked
-                               ? 'bg-primary-50 border-blue-400 text-blue-800'
-                               : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleCheckbox('preferred_job_types', opt.value)}
-                    className="accent-primary-600"
-                  />
-                  {opt.label}
+            <div className="space-y-5">
+              {/* Experience */}
+              <div>
+                <label className="block text-sm font-medium text-surface-600 mb-1">
+                  工作年資
                 </label>
-              );
-            })}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    className="w-24 px-3 py-2 border border-surface-300 rounded-lg
+                               focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                               bg-white text-surface-800"
+                    placeholder="例: 3"
+                    value={profile.experience_years}
+                    onChange={(e) => handleChange('experience_years', e.target.value)}
+                  />
+                  <span className="text-sm text-surface-500">年</span>
+                </div>
+              </div>
+
+              {/* Education */}
+              <div>
+                <label className="block text-sm font-medium text-surface-600 mb-1">
+                  最高學歷
+                </label>
+                <select
+                  className="w-full px-3 py-2 border border-surface-300 rounded-lg
+                             focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                             bg-white text-surface-800"
+                  value={profile.education}
+                  onChange={(e) => handleChange('education', e.target.value)}
+                >
+                  {EDUCATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Job Type — multi-select checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-surface-600 mb-2">
+                  工作類型（可複選）
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {JOB_TYPE_OPTIONS.map((opt) => {
+                    const checked = profile.preferred_job_types.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
+                                   transition-colors select-none text-sm
+                                   ${checked
+                                     ? 'bg-primary-50 border-blue-400 text-blue-800'
+                                     : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCheckbox('preferred_job_types', opt.value)}
+                          className="accent-primary-600"
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Remote Type — multi-select checkboxes */}
+              <div>
+                <label className="block text-sm font-medium text-surface-600 mb-2">
+                  遠端偏好（可複選）
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {REMOTE_TYPE_OPTIONS.map((opt) => {
+                    const checked = profile.preferred_remote_types.includes(opt.value);
+                    return (
+                      <label
+                        key={opt.value}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
+                                   transition-colors select-none text-sm
+                                   ${checked
+                                     ? 'bg-primary-50 border-blue-400 text-blue-800'
+                                     : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCheckbox('preferred_remote_types', opt.value)}
+                          className="accent-primary-600"
+                        />
+                        {opt.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="flex items-center gap-3 mt-6">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="w-full px-6 py-2.5 bg-primary-600 text-white rounded-lg font-medium
+                           hover:bg-primary-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? '儲存中...' : '儲存條件'}
+              </button>
+            </div>
+            {message && (
+              <p className={`text-sm mt-3 ${message.startsWith('已儲存') ? 'text-green-600' : 'text-red-500'}`}>
+                {message}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Remote Type — multi-select checkboxes */}
-        <div>
-          <label className="block text-sm font-medium text-surface-600 mb-2">
-            遠端偏好（可複選）
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {REMOTE_TYPE_OPTIONS.map((opt) => {
-              const checked = profile.preferred_remote_types.includes(opt.value);
-              return (
-                <label
-                  key={opt.value}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer
-                             transition-colors select-none text-sm
-                             ${checked
-                               ? 'bg-primary-50 border-blue-400 text-blue-800'
-                               : 'bg-white border-surface-300 text-surface-600 hover:border-surface-400'}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggleCheckbox('preferred_remote_types', opt.value)}
-                    className="accent-primary-600"
-                  />
-                  {opt.label}
-                </label>
-              );
-            })}
+        {/* ── Right column: skill picker ── */}
+        <div className="lg:col-span-3">
+          <div className="bg-white border border-surface-200/80 rounded-2xl shadow-card p-6">
+            <SkillPicker />
           </div>
         </div>
       </div>
-
-      {/* Save button */}
-      <div className="flex items-center gap-3 mt-6">
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2.5 bg-primary-600 text-white rounded-lg font-medium
-                     hover:bg-primary-700 disabled:opacity-50 transition-colors"
-        >
-          {saving ? '儲存中...' : '儲存條件'}
-        </button>
-        {message && (
-          <span className={`text-sm ${message.startsWith('已儲存') ? 'text-green-600' : 'text-red-500'}`}>
-            {message}
-          </span>
-        )}
-      </div>
-
-
-      {/* Skill picker - grown from job data */}
-      <hr className="my-8 border-surface-200" />
-      <SkillPicker />
     </div>
   );
 }

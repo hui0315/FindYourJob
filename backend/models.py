@@ -70,7 +70,7 @@ class JobData(BaseModel):
     company_id: Optional[int] = None
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
-    salary_type: str = "monthly"  # monthly, yearly, hourly, negotiable
+    salary_type: Optional[str] = "monthly"  # monthly, yearly, hourly, negotiable
     salary_guaranteed_months: Optional[int] = None  # 保障年薪月數 (e.g., 14)
     location: Optional[str] = None
     city: Optional[str] = None
@@ -88,8 +88,7 @@ class JobData(BaseModel):
     language: Optional[str] = None  # 語文條件
     source_url: Optional[str] = None
     notes: Optional[str] = None
-    status: str = "not_applied"  # not_applied, applied, interviewing, offered, rejected
-    priority: int = 3  # 1-5, 1=highest
+    status: Optional[str] = "not_applied"  # not_applied, applied, interviewing, offered, rejected
     mismatches: Optional[str] = None  # JSON string of mismatch reasons
     skill_match: Optional[str] = None  # JSON: {score, known, learning, missing, total}
     raw_text: Optional[str] = None
@@ -125,7 +124,6 @@ class JobUpdate(BaseModel):
     source_url: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
-    priority: Optional[int] = None
 
 
 class MismatchItem(BaseModel):

@@ -49,7 +49,7 @@ JOB_COLUMNS = (
     "title, company, company_id, salary_min, salary_max, salary_type, salary_guaranteed_months, "
     "location, city, job_type, workload, description, skills, experience_years, "
     "education, remote_type, work_hours, leave_policy, benefits, benefits_structured, "
-    "language, source_url, notes, status, priority, mismatches, skill_match, raw_text, "
+    "language, source_url, notes, status, mismatches, skill_match, raw_text, "
     "field_metadata, edit_history"
 )
 
@@ -61,7 +61,7 @@ UPDATABLE_COLUMNS = {
     "skills", "experience_years",
     "education", "remote_type", "work_hours", "leave_policy",
     "benefits", "benefits_structured", "language",
-    "source_url", "notes", "status", "priority",
+    "source_url", "notes", "status",
 }
 
 COMPANY_COLUMNS = (
@@ -266,6 +266,7 @@ def get_skill_pool():
 def update_user_skills(updates: dict[str, str]):
     """Batch update user skill statuses. Body: {"React": "known", "Docker": "learning"}"""
     valid = {"known", "learning", "none"}
+    # Step 1: Save skill statuses (own transaction — guaranteed to persist)
     with get_db() as conn:
         for skill, status in updates.items():
             if status not in valid:
@@ -277,23 +278,32 @@ def update_user_skills(updates: dict[str, str]):
                     "INSERT OR REPLACE INTO user_skills (skill, status) VALUES (?, ?)",
                     (skill, status),
                 )
-        # Recalculate and persist skill_match for all jobs
-        rows = conn.execute("SELECT * FROM jobs").fetchall()
-        for row in rows:
-            job_obj = JobData(**dict(row))
-            match = calc_skill_match(job_obj, conn)
-            new_val = json.dumps(match, ensure_ascii=False) if match else None
-            conn.execute(
-                "UPDATE jobs SET skill_match = ? WHERE id = ?",
-                (new_val, row["id"]),
-            )
-        # Return the actual saved state for verification
         saved = conn.execute("SELECT skill, status FROM user_skills").fetchall()
-        return {
-            "message": "已更新",
-            "saved_count": len(saved),
-            "skills": {r["skill"]: r["status"] for r in saved},
-        }
+        skills_map = {r["skill"]: r["status"] for r in saved}
+
+    # Step 2: Recalculate skill_match for all jobs (separate transaction)
+    try:
+        with get_db() as conn:
+            rows = conn.execute("SELECT * FROM jobs").fetchall()
+            for row in rows:
+                try:
+                    job_obj = JobData(**dict(row))
+                except Exception:
+                    continue  # skip jobs with invalid data
+                match = calc_skill_match(job_obj, conn)
+                new_val = json.dumps(match, ensure_ascii=False) if match else None
+                conn.execute(
+                    "UPDATE jobs SET skill_match = ? WHERE id = ?",
+                    (new_val, row["id"]),
+                )
+    except Exception:
+        pass  # recalculation failure should not affect skill save
+
+    return {
+        "message": "已更新",
+        "saved_count": len(skills_map),
+        "skills": skills_map,
+    }
 
 
 def calc_skill_match(job: JobData, conn) -> dict | None:
@@ -752,7 +762,7 @@ _TRACKABLE_FIELDS = {
     "salary_guaranteed_months", "location", "city", "job_type", "workload",
     "description", "skills", "experience_years", "education", "remote_type",
     "work_hours", "leave_policy", "benefits", "benefits_structured",
-    "language", "source_url", "notes", "status", "priority",
+    "language", "source_url", "notes", "status",
 }
 
 
@@ -849,7 +859,7 @@ def _save_jobs_to_db(
                 job.skill_match = json.dumps(match, ensure_ascii=False)
 
             cursor = conn.execute(
-                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 30)})",
+                f"INSERT INTO jobs ({JOB_COLUMNS}) VALUES ({','.join('?' * 29)})",
                 (
                     job.title, job.company, job.company_id,
                     job.salary_min, job.salary_max,
@@ -859,7 +869,7 @@ def _save_jobs_to_db(
                     job.remote_type, job.work_hours, job.leave_policy,
                     job.benefits, job.benefits_structured,
                     job.language, job.source_url, job.notes,
-                    job.status, job.priority,
+                    job.status,
                     job.mismatches, job.skill_match, job.raw_text,
                     job.field_metadata, job.edit_history,
                 ),
@@ -948,7 +958,7 @@ def list_cities():
 def list_jobs(sort_by: str = "created_at", order: str = "desc", cities: str = ""):
     allowed_sort = {
         "created_at", "title", "company", "salary_min", "salary_max",
-        "priority", "experience_years", "education", "city",
+        "experience_years", "education", "city",
     }
     if order not in ("asc", "desc"):
         order = "desc"
@@ -1098,7 +1108,7 @@ _FIELD_LABELS = {
     "work_hours": "上班時間", "leave_policy": "休假制度",
     "benefits": "福利", "benefits_structured": "結構化福利",
     "language": "語文條件", "source_url": "來源連結",
-    "notes": "備註", "status": "投遞狀態", "priority": "優先順序",
+    "notes": "備註", "status": "投遞狀態",
 }
 
 

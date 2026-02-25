@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Clock, DollarSign, ClipboardList, Star, Zap,
+  Clock, DollarSign, ClipboardList, Zap,
   ChevronUp, ChevronDown, ClipboardX, Pencil, Trash2, History, X, AlertTriangle,
 } from 'lucide-react';
 import JobEditModal from './JobEditModal';
@@ -9,7 +9,6 @@ const SORT_OPTIONS = [
   { key: 'created_at', label: '加入時間', icon: Clock },
   { key: 'salary_max', label: '薪資', icon: DollarSign },
   { key: 'status', label: '投遞狀態', icon: ClipboardList },
-  { key: 'priority', label: '優先順序', icon: Star },
   { key: 'skill_match', label: '匹配度', icon: Zap },
 ];
 
@@ -45,14 +44,6 @@ const REMOTE_LABELS = {
   onsite: '到班',
   hybrid: '混合',
   remote: '遠端',
-};
-
-const PRIORITY_LABELS = {
-  1: { text: '最高', color: 'bg-red-500 text-white' },
-  2: { text: '高', color: 'bg-orange-400 text-white' },
-  3: { text: '中', color: 'bg-yellow-400 text-surface-800' },
-  4: { text: '低', color: 'bg-blue-200 text-blue-800' },
-  5: { text: '最低', color: 'bg-surface-200 text-surface-600' },
 };
 
 const STATUS_LABELS = {
@@ -248,10 +239,10 @@ const HISTORY_FIELD_LABELS = {
   skills: '技能需求', experience_years: '經驗年數', education: '學歷要求',
   remote_type: '遠端類型', work_hours: '上班時間', leave_policy: '休假制度',
   benefits: '福利', language: '語文條件', source_url: '來源連結',
-  notes: '備註', priority: '優先順序',
+  notes: '備註',
 };
 
-export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
+export default function JobTable({ jobs, sortBy, order, onSortChange, onDelete, onJobUpdated, onViewCompany, allCities, selectedCities, onCityFilterChange }) {
   const [expandedId, setExpandedId] = useState(null);
   const [editingJob, setEditingJob] = useState(null);
   const [historyJob, setHistoryJob] = useState(null);
@@ -260,7 +251,7 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
     if (sortBy === key) {
       onSortChange(key, order === 'asc' ? 'desc' : 'asc');
     } else {
-      const defaultOrder = (key === 'priority' || key === 'status') ? 'asc' : 'desc';
+      const defaultOrder = key === 'status' ? 'asc' : 'desc';
       onSortChange(key, defaultOrder);
     }
   }
@@ -368,7 +359,6 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
       <div className="space-y-4">
         {jobs.map((job) => {
           const expanded = expandedId === job.id;
-          const priority = PRIORITY_LABELS[job.priority] || PRIORITY_LABELS[3];
           const workload = job.workload ? WORKLOAD_LABELS[job.workload] : null;
           const mismatches = parseMismatches(job.mismatches);
           const hasMismatch = mismatches.length > 0;
@@ -406,11 +396,18 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                 className="p-5 flex items-center gap-4 cursor-pointer"
                 onClick={() => setExpandedId(expanded ? null : job.id)}
               >
-                {/* Priority badge */}
-                <span className={`shrink-0 w-8 h-8 rounded-full flex items-center
-                                  justify-center text-xs font-bold ${priority.color}`}>
-                  {job.priority}
-                </span>
+                {/* Status badge — read-only */}
+                {(() => {
+                  const st = STATUS_LABELS[job.status] || STATUS_LABELS.not_applied;
+                  return (
+                    <span
+                      className={`shrink-0 px-2.5 py-1 rounded-lg border text-xs font-semibold
+                                  select-none ${st.color}`}
+                    >
+                      {st.text}
+                    </span>
+                  );
+                })()}
 
                 {/* Core info */}
                 <div className="flex-1 min-w-0">
@@ -438,14 +435,6 @@ export default function JobTable({ jobs, sortBy, order, onSortChange, onRefresh,
                         {REMOTE_LABELS[job.remote_type] || job.remote_type}
                       </span>
                     )}
-                    {(() => {
-                      const st = STATUS_LABELS[job.status] || STATUS_LABELS.not_applied;
-                      return (
-                        <span className={`text-xs px-2 py-0.5 rounded border font-medium ${st.color}`}>
-                          {st.text}
-                        </span>
-                      );
-                    })()}
                   </div>
                   <p className="text-sm text-surface-500 truncate">
                     {job.company_data ? (
