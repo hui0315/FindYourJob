@@ -173,15 +173,15 @@ const SOURCE_BADGE_STYLES = {
 const SOURCE_BADGE_LABELS = {
   user: '手動',
   import: '匯入',
-  llm: '模型',
-  regex: 'Regex',
+  llm: 'AI',
+  regex: '快速',
 };
 
 const HISTORY_SOURCE_LABELS = {
-  llm: '模型解析',
-  import: 'LLM 匯入',
+  llm: 'AI 解析',
+  import: 'AI 匯入',
   user: '手動填寫',
-  regex: 'Regex 解析',
+  regex: '快速解析',
 };
 
 const HISTORY_ACTION_LABELS = {

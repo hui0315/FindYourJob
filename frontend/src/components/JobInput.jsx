@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Copy, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft, Copy, Check,
+  Search, ClipboardPaste, FileText, Sparkles, ClipboardCheck, CircleCheck,
+  ChevronDown, ChevronRight,
+} from 'lucide-react';
 import { parseJobs, importJobs, fetchPromptTemplate } from '../api';
 
 const RAW_PLACEHOLDER = `貼上職缺資訊，例如：
@@ -20,7 +25,7 @@ const RAW_PLACEHOLDER = `貼上職缺資訊，例如：
 可以一次貼多筆，用空行或 --- 分隔
 也可以直接從 104 / 1111 複製貼上`;
 
-const JSON_PLACEHOLDER = `貼上 LLM 回覆的 JSON，例如：
+const JSON_PLACEHOLDER = `貼上 AI 回覆的內容，例如：
 
 {
   "title": "前端工程師",
@@ -29,17 +34,35 @@ const JSON_PLACEHOLDER = `貼上 LLM 回覆的 JSON，例如：
   ...
 }
 
-支援單筆 JSON 物件或多筆 JSON 陣列
-也支援 \`\`\`json ... \`\`\` 格式`;
+支援一筆或多筆資料
+也支援被程式碼區塊包覆的格式`;
+
+const GUIDE_KEY = 'fyj_guide_completed';
+
+const ONBOARDING_STEPS = [
+  { icon: Search,         label: '找到感興趣的職缺', sub: '104、1111 等求職網' },
+  { icon: ClipboardPaste, label: '貼上職缺內容',     sub: '不須整理，直接貼' },
+  { icon: FileText,       label: '複製我們的模板' },
+  { icon: Sparkles,       label: '貼到 AI 工具',     sub: 'ChatGPT、Gemini 等' },
+  { icon: ClipboardCheck, label: '把結果貼回來' },
+  { icon: CircleCheck,    label: '完成！' },
+];
 
 export default function JobInput({ onParsed, loading, setLoading }) {
-  // 'input' = 貼原始文字 | 'online' = 線上 LLM 流程
+  // 'input' = 貼原始文字 | 'online' = 線上 AI 流程
   const [step, setStep] = useState('input');
   const [rawText, setRawText] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [error, setError] = useState('');
   const [promptTemplate, setPromptTemplate] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // 引導區塊：第一次成功解析前顯示
+  const [guideVisible, setGuideVisible] = useState(() => {
+    try { return localStorage.getItem(GUIDE_KEY) !== 'true'; }
+    catch { return true; }
+  });
+  const [guideOpen, setGuideOpen] = useState(true);
 
   useEffect(() => {
     fetchPromptTemplate().then((p) => {
@@ -51,7 +74,13 @@ export default function JobInput({ onParsed, loading, setLoading }) {
     ? promptTemplate + '\n' + rawText
     : rawText;
 
-  // ── 路線 B：本地模型解析 ──
+  function markGuideCompleted() {
+    setGuideVisible(false);
+    try { localStorage.setItem(GUIDE_KEY, 'true'); }
+    catch { /* localStorage unavailable */ }
+  }
+
+  // ── 路線 B：自動解析 ──
   async function handleLocalParse() {
     if (!rawText.trim()) {
       setError('請輸入職缺資訊');
@@ -63,6 +92,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       const jobs = await parseJobs(rawText);
       onParsed(jobs);
       setRawText('');
+      markGuideCompleted();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -70,7 +100,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
     }
   }
 
-  // ── 路線 A：進入線上 LLM 流程 ──
+  // ── 路線 A：進入線上 AI 流程 ──
   function handleGoOnline() {
     if (!rawText.trim()) {
       setError('請先輸入職缺資訊');
@@ -82,10 +112,10 @@ export default function JobInput({ onParsed, loading, setLoading }) {
     setStep('online');
   }
 
-  // ── 路線 A：匯入 JSON ──
+  // ── 路線 A：匯入 AI 結果 ──
   async function handleImport() {
     if (!jsonText.trim()) {
-      setError('請貼上 LLM 回覆的 JSON');
+      setError('請貼上 AI 回覆的內容');
       return;
     }
     setError('');
@@ -96,6 +126,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       setRawText('');
       setJsonText('');
       setStep('input');
+      markGuideCompleted();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -103,7 +134,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
     }
   }
 
-  // ── 複製組合好的 prompt ──
+  // ── 複製組合好的模板 ──
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(combinedPrompt);
@@ -133,9 +164,69 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       {/* ── Step 1: 貼上原始文字 ── */}
       {step === 'input' && (
         <div>
-          <h2 className="text-lg font-semibold text-surface-700 mb-2">
+          {/* ── Onboarding 引導區塊 ── */}
+          {guideVisible && (
+            <div className="mb-6">
+              <button
+                onClick={() => setGuideOpen((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-primary-600
+                           hover:text-primary-700 transition-colors mb-2"
+              >
+                {guideOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                使用流程說明
+                {!guideOpen && (
+                  <span className="text-xs text-surface-400 font-normal">（點擊展開）</span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {guideOpen && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gradient-to-r from-primary-50 to-blue-50 border border-primary-100
+                                    rounded-xl p-5">
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        {ONBOARDING_STEPS.map((s, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <div className="flex flex-col items-center text-center w-20">
+                              <div className="w-10 h-10 rounded-full bg-white border-2 border-primary-200
+                                              flex items-center justify-center text-primary-600 mb-1.5
+                                              shadow-sm">
+                                <s.icon size={18} />
+                              </div>
+                              <span className="text-xs font-medium text-surface-700 leading-tight">
+                                {s.label}
+                              </span>
+                              {s.sub && (
+                                <span className="text-[10px] text-surface-400 leading-tight mt-0.5">
+                                  {s.sub}
+                                </span>
+                              )}
+                            </div>
+                            {i < ONBOARDING_STEPS.length - 1 && (
+                              <span className="text-surface-300 text-lg mt-[-12px]">→</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
+          <h2 className="text-lg font-semibold text-surface-700 mb-1">
             貼上職缺資訊
           </h2>
+          <p className="text-sm text-surface-400 mb-2">
+            從求職網站複製職缺內容，直接貼上即可，不需要整理格式
+          </p>
           <textarea
             className="w-full h-64 p-4 border border-surface-300 rounded-lg
                        focus:ring-2 focus:ring-primary-500 focus:border-transparent
@@ -161,7 +252,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
                          hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors"
             >
-              複製 Prompt 給線上 LLM
+              透過 AI 整理
             </button>
             <button
               onClick={handleLocalParse}
@@ -170,13 +261,13 @@ export default function JobInput({ onParsed, loading, setLoading }) {
                          disabled:opacity-50 disabled:cursor-not-allowed
                          transition-colors"
             >
-              {loading ? '解析中...' : '本地模型解析'}
+              {loading ? '解析中...' : '自動解析'}
             </button>
           </div>
         </div>
       )}
 
-      {/* ── Step 2: 線上 LLM 流程 ── */}
+      {/* ── Step 2: 線上 AI 流程 ── */}
       {step === 'online' && (
         <div>
           {/* 返回 */}
@@ -187,11 +278,11 @@ export default function JobInput({ onParsed, loading, setLoading }) {
             <ArrowLeft size={14} className="inline-block mr-1" />返回修改
           </button>
 
-          {/* 組合好的 prompt */}
+          {/* 組合好的模板 */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-semibold text-surface-700">
-                複製以下內容貼到 LLM
+                複製以下內容貼到 AI 工具
               </h2>
               <button
                 onClick={handleCopy}
@@ -216,13 +307,13 @@ export default function JobInput({ onParsed, loading, setLoading }) {
             <ol className="list-decimal list-inside space-y-0.5 text-primary-600">
               <li>複製上方內容</li>
               <li>貼到 ChatGPT / Gemini / Claude</li>
-              <li>把 LLM 回覆的 JSON 貼到下方</li>
+              <li>把 AI 回覆的結果貼到下方</li>
             </ol>
           </div>
 
-          {/* JSON 貼回區 */}
+          {/* AI 結果貼回區 */}
           <h3 className="text-sm font-medium text-surface-600 mb-1">
-            貼上 LLM 回覆的 JSON
+            貼上 AI 回覆的結果
           </h3>
           <textarea
             className="w-full h-48 p-4 border border-surface-300 rounded-lg
