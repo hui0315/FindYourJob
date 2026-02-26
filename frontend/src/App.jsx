@@ -138,7 +138,7 @@ export default function App() {
                   ? 'bg-green-50 text-green-600 border border-green-200'
                   : 'bg-amber-50 text-amber-600 border border-amber-200'
               }`}>
-                {status.ollama_available ? `LLM: ${status.model}` : 'Regex 模式'}
+                {status.ollama_available ? 'AI 已連線' : '基本模式'}
               </span>
             )}
           </div>

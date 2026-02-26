@@ -75,10 +75,10 @@ const ENUM_DISPLAY = Object.fromEntries(
 );
 
 const SOURCE_LABELS = {
-  llm: '模型解析',
-  import: 'LLM 匯入',
+  llm: 'AI 解析',
+  import: 'AI 匯入',
   user: '手動填寫',
-  regex: 'Regex 解析',
+  regex: '快速解析',
 };
 
 function formatTimestamp(isoStr) {
@@ -229,7 +229,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
 
   // ── Supplement: import JSON → preview ──
   function handleImportPreview() {
-    if (!jsonText.trim()) { setError('請貼上 LLM 回覆的 JSON'); return; }
+    if (!jsonText.trim()) { setError('請貼上 AI 回覆的內容'); return; }
     handlePreview('import', jsonText);
   }
 
@@ -510,7 +510,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                     <span>{editSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
                     修正已有資料 ({filledFields.length} 個欄位)
                     <span className="text-xs text-surface-400 font-normal ml-1">
-                      修正 LLM 解析錯誤
+                      修正 AI 解析錯誤
                     </span>
                   </button>
                   {editSectionOpen && (
@@ -581,7 +581,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                                  hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                  transition-colors"
                     >
-                      複製 Prompt 給線上 LLM
+                      透過 AI 整理
                     </button>
                     <button
                       onClick={handleLocalPreview}
@@ -589,7 +589,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                       className="text-sm text-surface-400 hover:text-surface-500
                                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {loading ? '解析中...' : '本地模型解析'}
+                      {loading ? '解析中...' : '自動解析'}
                     </button>
                   </div>
                 </div>
@@ -607,7 +607,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                   <div className="mb-3">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-medium text-surface-700">
-                        複製以下內容貼到 LLM
+                        複製以下內容貼到 AI 工具
                       </h3>
                       <button
                         onClick={handleCopy}
@@ -630,7 +630,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                     <ol className="list-decimal list-inside space-y-0.5">
                       <li>複製上方內容</li>
                       <li>貼到 ChatGPT / Gemini / Claude</li>
-                      <li>把 LLM 回覆的 JSON 貼到下方</li>
+                      <li>把 AI 回覆的結果貼到下方</li>
                     </ol>
                   </div>
                   <textarea
@@ -638,7 +638,7 @@ export default function JobEditModal({ job, onSave, onClose }) {
                                focus:ring-2 focus:ring-primary-500 focus:border-transparent
                                resize-y text-sm font-mono bg-white text-surface-800
                                placeholder:text-surface-400"
-                    placeholder="貼上 LLM 回覆的 JSON..."
+                    placeholder="貼上 AI 回覆的內容..."
                     value={jsonText}
                     onChange={(e) => setJsonText(e.target.value)}
                   />

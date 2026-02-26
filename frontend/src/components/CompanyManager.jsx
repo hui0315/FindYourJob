@@ -82,7 +82,7 @@ const ALL_EDITABLE_FIELDS = [
 ];
 
 const SOURCE_LABELS = {
-  import: 'LLM 匯入',
+  import: 'AI 匯入',
   user: '手動填寫',
 };
 
@@ -241,7 +241,7 @@ export default function CompanyManager() {
   }
 
   async function handleImportPreview() {
-    if (!jsonText.trim()) { setSupplementError('請貼上 LLM 回覆的 JSON'); return; }
+    if (!jsonText.trim()) { setSupplementError('請貼上 AI 回覆的內容'); return; }
     setSupplementError('');
     setSupplementSuccess('');
     setSupplementLoading(true);
@@ -621,7 +621,7 @@ export default function CompanyManager() {
                                              hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed
                                              transition-colors"
                                 >
-                                  複製 Prompt 給線上 LLM
+                                  透過 AI 整理
                                 </button>
                                 <button
                                   onClick={() => { setEditingId(null); setDirtyFields(new Set()); }}
@@ -645,7 +645,7 @@ export default function CompanyManager() {
                               <div className="mb-3">
                                 <div className="flex items-center justify-between mb-2">
                                   <h3 className="text-sm font-medium text-surface-700">
-                                    複製以下內容貼到 LLM
+                                    複製以下內容貼到 AI 工具
                                   </h3>
                                   <button
                                     onClick={handleCopy}
@@ -668,7 +668,7 @@ export default function CompanyManager() {
                                 <ol className="list-decimal list-inside space-y-0.5">
                                   <li>複製上方內容</li>
                                   <li>貼到 ChatGPT / Gemini / Claude</li>
-                                  <li>把 LLM 回覆的 JSON 貼到下方</li>
+                                  <li>把 AI 回覆的結果貼到下方</li>
                                 </ol>
                               </div>
                               <textarea
@@ -676,7 +676,7 @@ export default function CompanyManager() {
                                            focus:ring-2 focus:ring-primary-500 focus:border-transparent
                                            resize-y text-sm font-mono bg-white text-surface-800
                                            placeholder:text-surface-400"
-                                placeholder="貼上 LLM 回覆的 JSON..."
+                                placeholder="貼上 AI 回覆的內容..."
                                 value={jsonText}
                                 onChange={(e) => setJsonText(e.target.value)}
                               />
@@ -973,7 +973,7 @@ function CompanyEditPanel({
             <span>{editSectionOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</span>
             修正已有資料 ({filledFields.length} 個欄位)
             <span className="text-xs text-surface-400 font-normal ml-1">
-              修正 LLM 整理錯誤
+              修正 AI 整理錯誤
             </span>
           </button>
           {editSectionOpen && (
