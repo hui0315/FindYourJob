@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="FindYourJob Logo" width="64" />
+  <img src="assets/logo-wordmark.svg" alt="FindYourJob" height="48" />
 </p>
-
-<h1 align="center"><b>Find</b>YourJob</h1>
 
 <p align="center">
   找工作時，職缺散落 104、LinkedIn、朋友傳的訊息⋯ 很難比較對吧？<br/>
@@ -24,31 +22,9 @@
 
 ---
 
-<!-- 截圖拍攝指南：
-  - job-table.png：「整理檢視」tab，載入 5-8 筆職缺，薪資排序啟用，城市篩選可見，混合投遞狀態（未投遞/已投遞/面試中），技能匹配分數可見
-  - job-input.png：「輸入職缺」tab，新手引導步驟可見，文字輸入區顯示 placeholder
-  - skill-picker.png：「我的條件」tab 技能區塊，三區（已會/可補強/未選）各有技能
-  - company-manager.png：「公司管理」tab，展開一間公司顯示福利與聯絡資訊
--->
-
 <p align="center">
-  <img src="screenshots/job-table.png" alt="職缺比較表格" width="80%" />
-  <br/>
-  <sub>▲ 所有蒐集的職缺，一個畫面看完——薪資、技能匹配、投遞狀態一目瞭然</sub>
-</p>
-
-<p align="center">
-  <img src="screenshots/job-input.png" alt="貼上職缺" width="48%" />
-  <img src="screenshots/skill-picker.png" alt="技能匹配" width="48%" />
-</p>
-<p align="center">
-  <sub>▲ 左：貼上職缺原文，AI 自動整理　｜　右：標記你的技能，計算每筆職缺的匹配分數</sub>
-</p>
-
-<p align="center">
-  <img src="screenshots/company-manager.png" alt="公司管理" width="80%" />
-  <br/>
-  <sub>▲ 同公司的職缺自動歸類，福利、聯絡人、面試筆記集中管理</sub>
+  <b>職缺比較表格</b>　｜　<b>AI 自動整理</b>　｜　<b>技能匹配</b>　｜　<b>公司管理</b><br/>
+  薪資、技能匹配、投遞狀態一目瞭然　｜　貼上原文自動萃取　｜　標記技能算匹配分數　｜　福利、聯絡人、面試筆記集中管理
 </p>
 
 ---
