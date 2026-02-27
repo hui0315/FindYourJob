@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="data:image/svg+xml,%3Csvg width='64' height='64' viewBox='0 0 32 32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Ccircle cx='16' cy='16' r='7' stroke='white' stroke-width='2' fill='none'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='white'/%3E%3Cline x1='16' y1='6' x2='16' y2='11' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='16' y1='21' x2='16' y2='26' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='6' y1='16' x2='11' y2='16' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='21' y1='16' x2='26' y2='16' stroke='white' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E" alt="FindYourJob Logo" width="64" />
+  <img src="assets/logo.svg" alt="FindYourJob Logo" width="64" />
 </p>
 
 <h1 align="center"><b>Find</b>YourJob</h1>
@@ -15,8 +15,8 @@
 <h3 align="center">2 分鐘看懂 FindYourJob</h3>
 
 <p align="center">
-  <a href="[https://www.youtube.com/watch?v=0NcBFBNhQ1M](https://www.youtube.com/watch?v=C3J-BJ8R7uo)">
-    <img src="https://img.youtube.com/vi/0NcBFBNhQ1M/maxresdefault.jpg" alt="FindYourJob 操作介紹影片" width="80%" />
+  <a href="https://www.youtube.com/watch?v=C3J-BJ8R7uo">
+    <img src="https://img.youtube.com/vi/C3J-BJ8R7uo/maxresdefault.jpg" alt="FindYourJob 操作介紹影片" width="80%" />
   </a>
   <br/>
   <sub>▲ 點擊圖片觀看完整操作介紹</sub>
