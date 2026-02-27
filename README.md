@@ -12,6 +12,18 @@
 
 ---
 
+<h3 align="center">2 分鐘看懂 FindYourJob</h3>
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=0NcBFBNhQ1M">
+    <img src="https://img.youtube.com/vi/0NcBFBNhQ1M/maxresdefault.jpg" alt="FindYourJob 操作介紹影片" width="80%" />
+  </a>
+  <br/>
+  <sub>▲ 點擊圖片觀看完整操作介紹</sub>
+</p>
+
+---
+
 <!-- 截圖拍攝指南：
   - job-table.png：「整理檢視」tab，載入 5-8 筆職缺，薪資排序啟用，城市篩選可見，混合投遞狀態（未投遞/已投遞/面試中），技能匹配分數可見
   - job-input.png：「輸入職缺」tab，新手引導步驟可見，文字輸入區顯示 placeholder
