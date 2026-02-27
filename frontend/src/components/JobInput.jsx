@@ -37,8 +37,6 @@ const JSON_PLACEHOLDER = `貼上 AI 回覆的內容，例如：
 支援一筆或多筆資料
 也支援被程式碼區塊包覆的格式`;
 
-const GUIDE_KEY = 'fyj_guide_completed';
-
 const ONBOARDING_STEPS = [
   { icon: Search,         label: '找到感興趣的職缺', sub: '104、1111 等求職網' },
   { icon: ClipboardPaste, label: '貼上職缺內容',     sub: '不須整理，直接貼' },
@@ -57,11 +55,7 @@ export default function JobInput({ onParsed, loading, setLoading }) {
   const [promptTemplate, setPromptTemplate] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // 引導區塊：第一次成功解析前顯示
-  const [guideVisible, setGuideVisible] = useState(() => {
-    try { return localStorage.getItem(GUIDE_KEY) !== 'true'; }
-    catch { return true; }
-  });
+  // 引導區塊：展開/收合
   const [guideOpen, setGuideOpen] = useState(true);
 
   useEffect(() => {
@@ -73,12 +67,6 @@ export default function JobInput({ onParsed, loading, setLoading }) {
   const combinedPrompt = promptTemplate
     ? promptTemplate + '\n' + rawText
     : rawText;
-
-  function markGuideCompleted() {
-    setGuideVisible(false);
-    try { localStorage.setItem(GUIDE_KEY, 'true'); }
-    catch { /* localStorage unavailable */ }
-  }
 
   // ── 路線 B：自動解析 ──
   async function handleLocalParse() {
@@ -92,7 +80,6 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       const jobs = await parseJobs(rawText);
       onParsed(jobs);
       setRawText('');
-      markGuideCompleted();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -126,7 +113,6 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       setRawText('');
       setJsonText('');
       setStep('input');
-      markGuideCompleted();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -165,7 +151,6 @@ export default function JobInput({ onParsed, loading, setLoading }) {
       {step === 'input' && (
         <div>
           {/* ── Onboarding 引導區塊 ── */}
-          {guideVisible && (
             <div className="mb-6">
               <button
                 onClick={() => setGuideOpen((v) => !v)}
@@ -219,7 +204,6 @@ export default function JobInput({ onParsed, loading, setLoading }) {
                 )}
               </AnimatePresence>
             </div>
-          )}
 
           <h2 className="text-lg font-semibold text-surface-700 mb-1">
             貼上職缺資訊
