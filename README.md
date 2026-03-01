@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://youtu.be/qFIO9MMUgts?si=66nz7nAaXR9rqmDG">
-    <img src="https://img.youtube.com/vi/C3J-BJ8R7uo/maxresdefault.jpg" alt="FindYourJob 操作介紹影片" width="80%" />
+    <img src="https://img.youtube.com/vi/qFIO9MMUgts/maxresdefault.jpg" alt="FindYourJob 操作介紹影片" width="80%" />
   </a>
   <br/>
   <sub>▲ 點擊圖片觀看完整操作介紹</sub>
