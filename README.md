@@ -13,7 +13,7 @@
 <h3 align="center">2 分鐘看懂 FindYourJob</h3>
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=C3J-BJ8R7uo">
+  <a href="https://youtu.be/qFIO9MMUgts?si=9FEP_pjNFUjbsy-E">
     <img src="https://img.youtube.com/vi/C3J-BJ8R7uo/maxresdefault.jpg" alt="FindYourJob 操作介紹影片" width="80%" />
   </a>
   <br/>
