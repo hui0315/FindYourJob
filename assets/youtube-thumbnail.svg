@@ -83,7 +83,7 @@
   </g>
 
   <!-- ==================== 右上：散亂分頁（往左下移，增加與箭頭重疊感） ==================== -->
-  <g transform="translate(820, 60)" opacity="0.85" filter="url(#heavyTextShadow)">
+  <g transform="translate(820, 60)" opacity="1" filter="url(#heavyTextShadow)">
     <use href="#dark-browser" x="0" y="0" transform="scale(0.8) rotate(-15, 140, 90)"/>
     <use href="#dark-browser" x="80" y="-30" transform="scale(0.8) rotate(10, 140, 90)"/>
     <use href="#dark-browser" x="40" y="60" transform="scale(0.8) rotate(-5, 140, 90)"/>
