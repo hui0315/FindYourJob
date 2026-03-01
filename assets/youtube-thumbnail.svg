@@ -2,218 +2,189 @@
      xmlns="http://www.w3.org/2000/svg">
 
   <defs>
-    <!-- 背景漸層：靛藍對角線 -->
-    <linearGradient id="bg-gradient" x1="0" y1="0" x2="1280" y2="720"
-                    gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#4f46e5"/>
-      <stop offset="100%" stop-color="#312e81"/>
-    </linearGradient>
-
-    <!-- 中心聚光效果 -->
-    <radialGradient id="spotlight" cx="50%" cy="40%" r="60%">
-      <stop offset="0%" stop-color="white" stop-opacity="0.07"/>
-      <stop offset="100%" stop-color="white" stop-opacity="0"/>
+    <!-- 右側青色聚光 -->
+    <radialGradient id="solutionGlow" cx="80%" cy="60%" r="50%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 左上紅色光暈（痛點） -->
+    <radialGradient id="painGlow" cx="60%" cy="20%" r="40%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- 文字陰影 -->
-    <filter id="text-shadow" x="-5%" y="-10%" width="110%" height="130%">
-      <feDropShadow dx="0" dy="4" stdDeviation="6"
-                    flood-color="#1e1b4b" flood-opacity="0.6"/>
+    <!-- 文字重陰影 -->
+    <filter id="heavyTextShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.8"/>
+    </filter>
+    <!-- 表格浮出陰影 -->
+    <filter id="floatShadow" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="-10" dy="25" stdDeviation="20" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+    <!-- 青色霓虹發光 -->
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <!-- 箭頭發光 -->
+    <filter id="arrowGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feDropShadow dx="0" dy="0" stdDeviation="15" flood-color="#facc15" flood-opacity="0.6"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
     </filter>
 
-    <!-- 箭頭發光 -->
-    <filter id="arrow-glow" x="-30%" y="-50%" width="160%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
+    <!-- 散亂瀏覽器視窗模板 -->
+    <g id="dark-browser">
+      <rect width="280" height="180" rx="10" fill="#1e293b" stroke="#334155" stroke-width="2"/>
+      <path d="M 0 10 Q 0 0 10 0 L 270 0 Q 280 0 280 10 L 280 30 L 0 30 Z" fill="#0f172a"/>
+      <circle cx="16" cy="15" r="5" fill="#ef4444" fill-opacity="0.5"/>
+      <circle cx="32" cy="15" r="5" fill="#facc15" fill-opacity="0.5"/>
+      <circle cx="48" cy="15" r="5" fill="#22c55e" fill-opacity="0.5"/>
+      <rect x="20" y="50" width="150" height="12" rx="4" fill="#334155"/>
+      <rect x="20" y="80" width="240" height="12" rx="4" fill="#334155"/>
+      <rect x="20" y="110" width="200" height="12" rx="4" fill="#334155"/>
+    </g>
   </defs>
 
-  <!-- ==================== LAYER 1: 背景 ==================== -->
-  <rect width="1280" height="720" fill="url(#bg-gradient)"/>
-  <rect width="1280" height="720" fill="url(#spotlight)"/>
+  <!-- ==================== 背景層 ==================== -->
+  <rect width="1280" height="720" fill="#0f172a"/>
+  <rect width="1280" height="720" fill="url(#painGlow)"/>
+  <rect width="1280" height="720" fill="url(#solutionGlow)"/>
 
-  <!-- ==================== LAYER 2: 主標文字 ==================== -->
-  <text x="640" y="175" text-anchor="middle"
-        font-family="'Noto Sans TC', Inter, -apple-system, sans-serif"
-        font-size="96" font-weight="900" fill="white"
-        filter="url(#text-shadow)">
-    <tspan fill="#fbbf24">30</tspan> 個分頁？
-  </text>
-  <text x="640" y="290" text-anchor="middle"
-        font-family="'Noto Sans TC', Inter, -apple-system, sans-serif"
-        font-size="96" font-weight="900" fill="white"
-        filter="url(#text-shadow)">
-    一張表搞定
-  </text>
+  <!-- 背景網格（科技感） -->
+  <g stroke="white" stroke-opacity="0.03" stroke-width="1">
+    <line x1="0" y1="180" x2="1280" y2="180"/>
+    <line x1="0" y1="360" x2="1280" y2="360"/>
+    <line x1="0" y1="540" x2="1280" y2="540"/>
+    <line x1="320" y1="0" x2="320" y2="720"/>
+    <line x1="640" y1="0" x2="640" y2="720"/>
+    <line x1="960" y1="0" x2="960" y2="720"/>
+  </g>
 
-  <!-- ==================== LAYER 3: 散亂分頁（左側） ==================== -->
-  <g id="messy-tabs">
-    <!-- 分頁 1（背景層） -->
-    <g transform="translate(170, 385) rotate(-14)">
-      <rect width="140" height="90" rx="6" fill="white" fill-opacity="0.1"
-            stroke="white" stroke-opacity="0.2" stroke-width="1.5"/>
-      <rect x="8" y="8" width="55" height="6" rx="3" fill="white" fill-opacity="0.25"/>
-      <rect x="8" y="22" width="95" height="4" rx="2" fill="white" fill-opacity="0.12"/>
-      <rect x="8" y="32" width="70" height="4" rx="2" fill="white" fill-opacity="0.12"/>
-    </g>
-    <!-- 分頁 2（背景層） -->
-    <g transform="translate(300, 375) rotate(9)">
-      <rect width="130" height="85" rx="6" fill="white" fill-opacity="0.1"
-            stroke="white" stroke-opacity="0.2" stroke-width="1.5"/>
-      <rect x="8" y="8" width="50" height="6" rx="3" fill="white" fill-opacity="0.25"/>
-      <rect x="8" y="22" width="85" height="4" rx="2" fill="white" fill-opacity="0.12"/>
-      <rect x="8" y="32" width="65" height="4" rx="2" fill="white" fill-opacity="0.12"/>
-    </g>
-    <!-- 分頁 3（中間層） -->
-    <g transform="translate(190, 445) rotate(6)">
-      <rect width="145" height="92" rx="6" fill="white" fill-opacity="0.12"
-            stroke="white" stroke-opacity="0.25" stroke-width="1.5"/>
-      <rect x="8" y="8" width="60" height="6" rx="3" fill="white" fill-opacity="0.3"/>
-      <rect x="8" y="22" width="100" height="4" rx="2" fill="white" fill-opacity="0.15"/>
-      <rect x="8" y="32" width="75" height="4" rx="2" fill="white" fill-opacity="0.15"/>
-    </g>
-    <!-- 分頁 4（中間層） -->
-    <g transform="translate(330, 430) rotate(-7)">
-      <rect width="135" height="88" rx="6" fill="white" fill-opacity="0.12"
-            stroke="white" stroke-opacity="0.25" stroke-width="1.5"/>
-      <rect x="8" y="8" width="48" height="6" rx="3" fill="white" fill-opacity="0.3"/>
-      <rect x="8" y="22" width="90" height="4" rx="2" fill="white" fill-opacity="0.15"/>
-      <rect x="8" y="32" width="72" height="4" rx="2" fill="white" fill-opacity="0.15"/>
-    </g>
-    <!-- 分頁 5（前景層） -->
-    <g transform="translate(230, 500) rotate(-17)">
-      <rect width="150" height="95" rx="6" fill="white" fill-opacity="0.15"
-            stroke="white" stroke-opacity="0.3" stroke-width="1.5"/>
-      <rect x="8" y="8" width="62" height="6" rx="3" fill="white" fill-opacity="0.35"/>
-      <rect x="8" y="22" width="105" height="4" rx="2" fill="white" fill-opacity="0.18"/>
-      <rect x="8" y="32" width="80" height="4" rx="2" fill="white" fill-opacity="0.18"/>
-    </g>
-    <!-- 分頁 6（前景層） -->
-    <g transform="translate(360, 485) rotate(11)">
-      <rect width="138" height="88" rx="6" fill="white" fill-opacity="0.15"
-            stroke="white" stroke-opacity="0.3" stroke-width="1.5"/>
-      <rect x="8" y="8" width="52" height="6" rx="3" fill="white" fill-opacity="0.35"/>
-      <rect x="8" y="22" width="92" height="4" rx="2" fill="white" fill-opacity="0.18"/>
-      <rect x="8" y="32" width="68" height="4" rx="2" fill="white" fill-opacity="0.18"/>
+  <!-- ==================== 左半部：巨大文字 ==================== -->
+  <g font-family="'Noto Sans TC', Inter, -apple-system, sans-serif"
+     font-weight="900" filter="url(#heavyTextShadow)">
+
+    <!-- PAIN POINT 標籤 -->
+    <rect x="85" y="110" width="160" height="40" rx="20"
+          fill="#ef4444" fill-opacity="0.2" stroke="#ef4444" stroke-width="2"/>
+    <text x="105" y="138" font-size="22" fill="#fca5a5"
+          font-weight="bold" letter-spacing="2">PAIN POINT</text>
+
+    <!-- 第一行：30 巨大化 + 個分頁？ -->
+    <text x="70" y="320">
+      <tspan font-size="240" fill="#facc15">30</tspan>
+      <tspan font-size="85" fill="#f8fafc" dy="-35"> 個分頁？</tspan>
+    </text>
+
+    <!-- 第二行：一張表（青色）搞定（白色） -->
+    <text x="80" y="500">
+      <tspan font-size="115" fill="#38bdf8">一張表</tspan>
+      <tspan font-size="115" fill="#f8fafc">搞定</tspan>
+    </text>
+  </g>
+
+  <!-- ==================== 右半部：散亂分頁（背景） ==================== -->
+  <g transform="translate(680, 50)" opacity="0.6" filter="url(#heavyTextShadow)">
+    <use href="#dark-browser" x="0" y="0" transform="scale(0.8) rotate(-15, 140, 90)"/>
+    <use href="#dark-browser" x="80" y="-30" transform="scale(0.8) rotate(10, 140, 90)"/>
+    <use href="#dark-browser" x="40" y="60" transform="scale(0.8) rotate(-5, 140, 90)"/>
+    <use href="#dark-browser" x="150" y="40" transform="scale(0.8) rotate(18, 140, 90)"/>
+
+    <!-- 紅色 ✗ 徽章 -->
+    <g transform="translate(230, -20)">
+      <circle cx="35" cy="35" r="30" fill="#ef4444"/>
+      <path d="M 22 22 L 48 48 M 48 22 L 22 48"
+            stroke="white" stroke-width="8" stroke-linecap="round"/>
     </g>
   </g>
 
-  <!-- 紅色 ✗ 徽章 -->
-  <g transform="translate(190, 378)">
-    <circle r="18" fill="#ef4444"/>
-    <line x1="-6" y1="-6" x2="6" y2="6" stroke="white" stroke-width="3" stroke-linecap="round"/>
-    <line x1="6" y1="-6" x2="-6" y2="6" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <!-- ==================== 箭頭 ==================== -->
+  <g transform="translate(620, 310) rotate(15)" filter="url(#arrowGlow)">
+    <path d="M 0 0 L 100 0" stroke="#facc15" stroke-width="14"
+          stroke-linecap="round" stroke-dasharray="20, 10"/>
+    <path d="M 75 -25 L 110 0 L 75 25" stroke="#facc15" stroke-width="14"
+          stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
 
-  <!-- ==================== LAYER 4: 箭頭 ==================== -->
-  <g transform="translate(640, 485)" filter="url(#arrow-glow)">
-    <line x1="-90" y1="0" x2="50" y2="0"
-          stroke="white" stroke-width="6" stroke-linecap="round"/>
-    <polyline points="35,-22 72,0 35,22"
-              fill="none" stroke="white" stroke-width="6"
-              stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-
-  <!-- ==================== LAYER 5: 整齊表格（右側） ==================== -->
-  <g id="clean-table" transform="translate(800, 370)">
-    <!-- 表格容器 -->
-    <rect width="320" height="220" rx="10"
-          fill="white" fill-opacity="0.1"
-          stroke="white" stroke-opacity="0.25" stroke-width="1.5"/>
+  <!-- ==================== 前景：霓虹發光表格 ==================== -->
+  <g transform="translate(710, 240)" filter="url(#floatShadow)">
+    <!-- 外框（雙層：霓虹 + 細邊） -->
+    <rect width="480" height="320" rx="20" fill="#1e293b"
+          stroke="#38bdf8" stroke-width="4" filter="url(#neonGlow)"/>
+    <rect width="480" height="320" rx="20" fill="#0f172a"
+          stroke="white" stroke-opacity="0.5" stroke-width="1"/>
 
     <!-- 表頭列 -->
-    <rect width="320" height="44" rx="10"
-          fill="white" fill-opacity="0.15"/>
-    <rect y="30" width="320" height="14"
-          fill="white" fill-opacity="0.15"/>
+    <path d="M 0 20 Q 0 0 20 0 L 460 0 Q 480 0 480 20 L 480 60 L 0 60 Z" fill="#1e293b"/>
+    <line x1="0" y1="60" x2="480" y2="60" stroke="#334155" stroke-width="2"/>
 
-    <!-- 表頭文字模擬 -->
-    <rect x="15" y="15" width="65" height="8" rx="4"
-          fill="white" fill-opacity="0.5"/>
-    <rect x="120" y="15" width="55" height="8" rx="4"
-          fill="white" fill-opacity="0.5"/>
-    <rect x="225" y="15" width="70" height="8" rx="4"
-          fill="white" fill-opacity="0.5"/>
+    <!-- 表頭內容 -->
+    <circle cx="30" cy="30" r="8" fill="#38bdf8"/>
+    <rect x="55" y="24" width="80" height="12" rx="6" fill="#f8fafc"/>
+    <rect x="180" y="24" width="60" height="12" rx="6" fill="#94a3b8"/>
+    <rect x="300" y="24" width="90" height="12" rx="6" fill="#94a3b8"/>
 
-    <!-- 第 1 行 -->
-    <rect x="15" y="60" width="80" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="120" y="60" width="48" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="225" y="60" width="62" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-
-    <!-- 第 2 行 -->
-    <rect x="15" y="86" width="72" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="120" y="86" width="56" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="225" y="86" width="50" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-
-    <!-- 第 3 行 -->
-    <rect x="15" y="112" width="88" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="120" y="112" width="42" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="225" y="112" width="66" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-
-    <!-- 第 4 行 -->
-    <rect x="15" y="138" width="76" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="120" y="138" width="52" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-    <rect x="225" y="138" width="58" height="6" rx="3"
-          fill="white" fill-opacity="0.25"/>
-
-    <!-- 水平分隔線 -->
-    <line x1="10" y1="75" x2="310" y2="75"
-          stroke="white" stroke-opacity="0.1" stroke-width="1"/>
-    <line x1="10" y1="101" x2="310" y2="101"
-          stroke="white" stroke-opacity="0.1" stroke-width="1"/>
-    <line x1="10" y1="127" x2="310" y2="127"
-          stroke="white" stroke-opacity="0.1" stroke-width="1"/>
+    <!-- 資料列 -->
+    <g transform="translate(0, 60)">
+      <!-- Row 1（淺底） -->
+      <rect x="0" y="0" width="480" height="50" fill="#f8fafc" fill-opacity="0.05"/>
+      <rect x="30" y="18" width="100" height="14" rx="7" fill="#38bdf8"/>
+      <rect x="180" y="18" width="80" height="14" rx="7" fill="#cbd5e1"/>
+      <rect x="300" y="18" width="120" height="14" rx="7" fill="#cbd5e1"/>
+      <!-- Row 2 -->
+      <rect x="30" y="68" width="70" height="14" rx="7" fill="#38bdf8"/>
+      <rect x="180" y="68" width="90" height="14" rx="7" fill="#cbd5e1"/>
+      <rect x="300" y="68" width="100" height="14" rx="7" fill="#cbd5e1"/>
+      <!-- Row 3（淺底） -->
+      <rect x="0" y="100" width="480" height="50" fill="#f8fafc" fill-opacity="0.05"/>
+      <rect x="30" y="118" width="120" height="14" rx="7" fill="#38bdf8"/>
+      <rect x="180" y="118" width="60" height="14" rx="7" fill="#cbd5e1"/>
+      <rect x="300" y="118" width="140" height="14" rx="7" fill="#cbd5e1"/>
+      <!-- Row 4 -->
+      <rect x="30" y="168" width="90" height="14" rx="7" fill="#38bdf8"/>
+      <rect x="180" y="168" width="110" height="14" rx="7" fill="#cbd5e1"/>
+      <rect x="300" y="168" width="80" height="14" rx="7" fill="#cbd5e1"/>
+      <!-- Row 5（淺底） -->
+      <rect x="0" y="200" width="480" height="50" fill="#f8fafc" fill-opacity="0.05"/>
+      <rect x="30" y="218" width="80" height="14" rx="7" fill="#38bdf8"/>
+      <rect x="180" y="218" width="100" height="14" rx="7" fill="#cbd5e1"/>
+      <rect x="300" y="218" width="90" height="14" rx="7" fill="#cbd5e1"/>
+    </g>
 
     <!-- 垂直分隔線 -->
-    <line x1="107" y1="10" x2="107" y2="150"
-          stroke="white" stroke-opacity="0.08" stroke-width="1"/>
-    <line x1="212" y1="10" x2="212" y2="150"
-          stroke="white" stroke-opacity="0.08" stroke-width="1"/>
+    <line x1="160" y1="60" x2="160" y2="320" stroke="#334155" stroke-width="2"/>
+    <line x1="280" y1="60" x2="280" y2="320" stroke="#334155" stroke-width="2"/>
+
+    <!-- 綠色 ✓ 徽章 -->
+    <g transform="translate(420, -30)" filter="url(#heavyTextShadow)">
+      <circle cx="45" cy="45" r="40" fill="#22c55e" stroke="#0f172a" stroke-width="6"/>
+      <path d="M 26 46 L 40 60 L 64 32"
+            stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </g>
   </g>
 
-  <!-- 綠色 ✓ 徽章 -->
-  <g transform="translate(1100, 365)">
-    <circle r="18" fill="#22c55e"/>
-    <polyline points="-7,0 -2,6 8,-6"
-              fill="none" stroke="white" stroke-width="3"
-              stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
-
-  <!-- ==================== LAYER 6: Logo 浮水印（右下角） ==================== -->
-  <g transform="translate(1020, 652)">
-    <!-- 羅盤圖示（30px） -->
-    <g transform="scale(0.9375)">
-      <rect width="32" height="32" rx="8" fill="white" fill-opacity="0.2"/>
-      <circle cx="16" cy="16" r="7" stroke="white" stroke-width="2" fill="none"/>
-      <circle cx="16" cy="16" r="2.5" fill="white"/>
-      <line x1="16" y1="6" x2="16" y2="11" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="16" y1="21" x2="16" y2="26" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="6" y1="16" x2="11" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-      <line x1="21" y1="16" x2="26" y2="16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- ==================== Logo 浮水印（左下角） ==================== -->
+  <g transform="translate(50, 650)">
+    <!-- 羅盤圖示 -->
+    <g transform="scale(1.1)">
+      <rect width="32" height="32" rx="8" fill="#4f46e5" fill-opacity="0.6"/>
+      <circle cx="16" cy="16" r="7" stroke="white" stroke-opacity="0.8" stroke-width="2" fill="none"/>
+      <circle cx="16" cy="16" r="2.5" fill="white" fill-opacity="0.8"/>
+      <line x1="16" y1="6" x2="16" y2="11" stroke="white" stroke-opacity="0.8" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="16" y1="21" x2="16" y2="26" stroke="white" stroke-opacity="0.8" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="6" y1="16" x2="11" y2="16" stroke="white" stroke-opacity="0.8" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="21" y1="16" x2="26" y2="16" stroke="white" stroke-opacity="0.8" stroke-width="1.5" stroke-linecap="round"/>
     </g>
     <!-- 文字商標 -->
-    <text x="38" y="22"
+    <text x="42" y="26"
           font-family="Inter, -apple-system, sans-serif"
-          font-size="18" font-weight="500"
-          fill="white" fill-opacity="0.6">Find</text>
-    <text x="73" y="22"
+          font-size="20" font-weight="500"
+          fill="#94a3b8">Find</text>
+    <text x="80" y="26"
           font-family="Inter, -apple-system, sans-serif"
-          font-size="18" font-weight="700"
-          fill="white" fill-opacity="0.9">YourJob</text>
+          font-size="20" font-weight="700"
+          fill="#e2e8f0">YourJob</text>
   </g>
 
 </svg>
